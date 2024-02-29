@@ -1,0 +1,13 @@
+python -u executor.py \
+    --task_name finetune \
+    --pretrain_ckpt_name ett_v0.pth \
+    --ckpt_name ett_finetuned_v0.pth \
+    --device 2 \
+    --run_name ett_finetune_initial \
+    --freeze_encoder False \
+    --config_name etth1.json \
+    --source_filename ETTh1.csv \
+    --num_windows 4 \
+    --pretrain_run_name ett_pretrain_initial \
+    --window 528 \
+    --lookback_window 336

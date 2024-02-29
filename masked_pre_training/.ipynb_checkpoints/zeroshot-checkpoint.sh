@@ -1,0 +1,12 @@
+python -u executor.py \
+    --task_name zeroshot \
+    --pretrain_ckpt_name mae_test_model_jan28.pth \
+    --device 4 \
+    --run_name zeroshottesting \
+    --feature_wise_rmse True \
+    --freeze_encoder True \
+    --pretrain_run_name approach1testing \
+    --n2one_ft False \
+    --encoder_embed_dim 8 \
+    --project_name 2dmasking \
+    --lookback_window 21

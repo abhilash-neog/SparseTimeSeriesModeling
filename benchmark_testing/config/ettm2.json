@@ -1,0 +1,6 @@
+{
+    "name": "m2",
+    "train_fraction": 12,
+    "val_fraction": 4,
+    "test_fraction": 4
+}

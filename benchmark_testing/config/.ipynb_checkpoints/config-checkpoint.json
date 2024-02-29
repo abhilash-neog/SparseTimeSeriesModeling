@@ -1,0 +1,6 @@
+{
+    "train_datasets": ["etth1", "etth2", "ettm1", "ettm2"],
+    "train_fractions": [0.6, 0.6, 0.6, 0.6],
+    "val_datasets": ["etth1", "etth2", "ettm1", "ettm2"],
+    "val_fractions": [0.4, 0.4, 0.4, 0.4]
+}

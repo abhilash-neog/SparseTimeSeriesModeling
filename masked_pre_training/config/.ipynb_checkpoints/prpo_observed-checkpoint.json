@@ -1,0 +1,6 @@
+{
+    "train_lakes": ["PRPO_observed"],
+    "train_fractions": [0.6],
+    "val_lakes": ["PRPO_observed"],
+    "val_fractions": [0.4]
+}
