@@ -1,0 +1,6 @@
+*wandb*
+*.ipynb_checkpoints*
+*__pycache__*
+*.swp
+*.pkl
+*.csv
