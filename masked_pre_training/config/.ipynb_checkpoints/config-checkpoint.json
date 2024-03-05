@@ -1,6 +1,0 @@
-{
-    "train_lakes": ["FCR_observed", "FCR_modeled", "Sunapee_modeled", "Mendota_modeled", "BARC_observed", "CRAM_observed", "LIRO_observed", "PRLA_observed", "PRPO_observed", "SUGG_observed", "TOOK_observed"],
-    "train_fractions": [0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6],
-    "val_lakes": ["FCR_observed", "FCR_modeled", "Sunapee_modeled", "Mendota_modeled", "BARC_observed", "CRAM_observed", "LIRO_observed", "PRLA_observed", "PRPO_observed", "SUGG_observed", "TOOK_observed"],
-    "val_fractions": [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4]
-}

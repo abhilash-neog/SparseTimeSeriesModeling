@@ -1,6 +1,0 @@
-{
-    "train_lakes": ["FCR_observed"],
-    "train_fractions": [0.6],
-    "val_lakes": ["FCR_observed"],
-    "val_fractions": [0.4]
-}

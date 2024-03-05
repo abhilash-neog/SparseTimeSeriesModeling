@@ -1,6 +1,0 @@
-{
-    "train_lakes": ["LIRO_observed"],
-    "train_fractions": [0.6],
-    "val_lakes": ["LIRO_observed"],
-    "val_fractions": [0.4]
-}

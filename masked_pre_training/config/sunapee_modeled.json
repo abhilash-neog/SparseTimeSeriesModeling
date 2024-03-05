@@ -1,6 +1,0 @@
-{
-    "train_lakes": ["Sunapee_modeled"],
-    "train_fractions": [0.6],
-    "val_lakes": ["Sunapee_modeled"],
-    "val_fractions": [0.4]
-}
