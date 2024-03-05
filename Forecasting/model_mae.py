@@ -54,7 +54,7 @@ class ModelPlugins():
         self.decoder_pos_embed = nn.Parameter(torch.zeros(1, self.seq_len + 1, self.dec_embed_dim), requires_grad=False).to(self.device)
         # self.decoder_pos_embed = PositionalEncoding2D(dec_embed_dim).to(self.device)
         
-        if n2one=="True":
+        if n2one==True:
             self.decoder_pred = nn.Linear(self.dec_embed_dim, 1, bias=True).to(self.device)  # decoder to patch
         else:
             self.decoder_pred = nn.Linear(self.dec_embed_dim, num_feats, bias=True).to(self.device)  # decoder to patch
@@ -114,7 +114,7 @@ class MaskedAutoencoder(nn.Module):
         self.encode_func = encode_func
         self.norm_field_loss = norm_field_loss
         
-        self.var_query = nn.Parameter(torch.zeros(1, 1, self.embed_dim), requires_grad=True)
+        self.var_query = nn.Parameter(torch.zeros(1, 1, 1, self.embed_dim), requires_grad=True)
         self.mhca = nn.MultiheadAttention(embed_dim=self.embed_dim, num_heads=self.num_heads, batch_first=True)
 
         self.mask_embed = FeatEmbed(input_dim=self.num_feats,
@@ -274,9 +274,6 @@ class MaskedAutoencoder(nn.Module):
         # unshuffle to get the binary mask
         mask = torch.gather(mask, dim=1, index=ids_restore)
         nask = torch.ones([N, L], device=x.device) - mask
-
-        # if self.training:
-        #     mask[m[:, 0, :] < eps] = 0
         
         return x_masked, mask, nask, ids_restore
 
@@ -300,7 +297,7 @@ class MaskedAutoencoder(nn.Module):
         x = self.mask_embed(x)
         
         # add pos embed w/o cls token
-        x = x + self.mpl.pos_embed[:, :-1, :, :]
+        x = x + self.mpl.pos_embed[:, 1:, :, :]
         
         # perform cross-attention
         x = self.cross_attention(x, m)
@@ -313,8 +310,7 @@ class MaskedAutoencoder(nn.Module):
         
         cls_tokens = cls_token.expand(x.shape[0], -1, -1, -1)
         
-        # do we really need the cls token??
-        cls_tokens = cls_tokens[:, :, :, 0]
+        cls_tokens = cls_tokens[:, :, 0, :]
         
         x = torch.cat((cls_tokens, x), dim=1)
 
@@ -328,21 +324,14 @@ class MaskedAutoencoder(nn.Module):
     def forward_decoder(self, x, ids_restore):
         # embed tokens
         x = self.decoder_embed(x)
-        # print(f"after decoder embedding = {x.shape}")
         
         mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
-        # print(f"mask_tokens = {mask_tokens.shape}")
         
         x_ = torch.cat([x[:, 1:, :], mask_tokens], dim=1)  # no cls token
-        # print(f"x_ after cat with masktokens = {x_.shape}")
         
         x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
-        # print(f"x_ after gather = {x_.shape}")
         
         x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
-        # print(f"x after concat with x_ = {x.shape}")
-        
-        # print(f"decoder pos embed = {self.mpl.decoder_pos_embed.shape}")
         
         # add pos embed
         x = x + self.mpl.decoder_pos_embed
@@ -359,16 +348,7 @@ class MaskedAutoencoder(nn.Module):
         # remove cls token
         x = x[:, 1:, :]
         
-        x_mod = x.clone()
-        
-        if self.n2one_ft=="True":
-            x_mod[:, :, 0] = torch.clamp(x[:, :, 0], min=self.alpha).to(self.device)
-        else:
-            x_mod[:, :, self.utils.chloro_index] = torch.clamp(x[:, :, self.utils.chloro_index], min=self.alpha).to(self.device)
-            
-        # print(f"what is the minimum ? = {x_mod[:, :, self.utils.chloro_index].min() >= self.alpha}")
-        # print(f"is it negative here as well = {((x_mod*self.std + self.mean)[:, :, self.utils.chloro_index] >= 0).all()}")
-        return x_mod
+        return x
 
 
     def forward_loss(self, data, pred, mask, nask, miss_idx, masked_penalize=False):
@@ -396,26 +376,11 @@ class MaskedAutoencoder(nn.Module):
             var = target.var(dim=-1, keepdim=True)
             target = (target - mean) / (var + eps)**.5
         
-#         print(f"pred shape = {pred.shape}")
-#         print(f"target shape = {target.shape}")
-        
-        # print(f"pred = {pred}")
-        # print(f"target = {target}")
         loss = (pred - target) ** 2
-        
-        # print(f"loss = {loss}")
         
         masked_loss = None
         unmasked_loss = None
-        # if masked_penalize:
-        #     loss = (loss * mask.unsqueeze(-1)).sum() / mask.unsqueeze(-1).repeat(1,1,loss.shape[2]).sum()
-        # else:
-        #     if mask.sum()==0:
-        #         loss = (loss * nask.unsqueeze(-1)).sum() / nask.unsqueeze(-1).repeat(1,1,loss.shape[2]).sum()
-        #     else:
-        #         masked_loss = (loss * mask.unsqueeze(-1)).sum() / mask.unsqueeze(-1).repeat(1,1,loss.shape[2]).sum()
-        #         unmasked_loss = (loss * nask.unsqueeze(-1)).sum() / nask.unsqueeze(-1).repeat(1,1,loss.shape[2]).sum() 
-        #         loss = masked_loss + unmasked_loss
+        
         if masked_penalize:
             loss = (loss * mask).sum() / mask.sum()
         else:
@@ -442,7 +407,7 @@ class MaskedAutoencoder(nn.Module):
         print(f"Encoder Blocks Frozen!")
     
     
-    def train_model(self, Xtrain, Xval, args, masked_penalize=False, utils=None):
+    def train_model(self, Xtrain, Xval, Xtest, args, utils=None, masked_penalize=False):
         
         self.batch_size = args['batch_size']
         self.accum_iter = args['accum_iter']
@@ -481,9 +446,6 @@ class MaskedAutoencoder(nn.Module):
             if args['freeze_encoder']=='True':
                 self.freeze_encoder_model()
             
-#         wandb.init(project=args['project_name'], name="_".join([self.task_name, args['run_name']]), 
-#                    config=args, save_code=args['save_code'])
-#         config = wandb.config
         
         config = init_wandb(args, self.task_name)
         
@@ -496,13 +458,12 @@ class MaskedAutoencoder(nn.Module):
         
         # Xval = torch.nan_to_num(Xval)
         Xval = Xval.to(self.device)
+        Xtest = Xtest.to(self.device)
         
         self.to(self.device)
         
         n_batches = int(math.ceil(Xtrain.shape[0] / self.batch_size))
         
-        # set optimizers
-        # param_groups = optim_factory.add_weight_decay(model, args.weight_decay)
         eff_batch_size = self.batch_size * self.accum_iter
         
         if self.lr is None:  # only base_lr is specified
@@ -511,7 +472,7 @@ class MaskedAutoencoder(nn.Module):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.9, 0.95))
         loss_scaler = NativeScaler()
 
-        dataset = MAEDataset(Xtrain, M, train_lake_names)
+        dataset = MAEDataset(Xtrain, M)
         dataloader = DataLoader(
             dataset, sampler=RandomSampler(dataset),
             batch_size=self.batch_size,
@@ -521,16 +482,12 @@ class MaskedAutoencoder(nn.Module):
         val_rmse = []
         train_rmse = []
         
-        if self.n2one_ft=="True":
+        if self.n2one_ft==True:
             self.std = self.utils.feat_std[:, :, self.utils.target_index].unsqueeze(1).to(self.device)
             self.mean = self.utils.feat_mean[:, :, self.utils.target_index].unsqueeze(1).to(self.device) 
-            self.alpha = (-self.mean/self.std)[:, :, 0]
         else:
             self.std = self.utils.feat_std.to(self.device)
             self.mean = self.utils.feat_mean.to(self.device)
-            self.alpha = (-self.mean/self.std)[:, :, self.utils.chloro_index]
-        
-        self.train()
         
         with trange(self.max_epochs) as tr:
             '''
@@ -553,7 +510,7 @@ class MaskedAutoencoder(nn.Module):
                 learning_rate = optimizer.param_groups[0]['lr']
                 print(f"learning rate in epoch {it} = {learning_rate} ")
                 
-                for iteration, (samples, masks, _) in enumerate(dataloader):
+                for iteration, (samples, masks) in enumerate(dataloader):
                     
                     # we use a per iteration (instead of per epoch) lr scheduler
                     if (iteration + 1) % self.accum_iter == 0:
@@ -563,8 +520,8 @@ class MaskedAutoencoder(nn.Module):
                         
                         pred, mask, nask = self(samples, masks) # we get de-normalized predictions
                         
-                        if self.n2one_ft=="True":
-                            samples = samples[:, :, self.utils.chloro_index].unsqueeze(2)
+                        if self.n2one_ft==True:
+                            samples = samples[:, :, self.utils.target_index].unsqueeze(2)
                         
                         loss, masked_loss, unmasked_loss = self.forward_loss(samples, pred, mask, nask, masks, masked_penalize)
                         
@@ -597,18 +554,22 @@ class MaskedAutoencoder(nn.Module):
                 
                 if it % self.eval_freq == 0:
                     t0 = time.time()
-                    # print(f"start with evaluation")
+                    
                     with torch.no_grad():
-                        batch_train_loss_dict, batch_val_loss_dict = self.evaluate_and_plot(Xtrain, 
-                                                                                            Xval,
-                                                                                            train_lake_names,
-                                                                                            val_lake_names,
-                                                                                            args,
-                                                                                            num_windows=num_windows, 
-                                                                                            num_samples=num_samples, 
-                                                                                            it=it)
-                        
-                    # print(f"done with evaluation in time = {(time.time()-t0)}")
+                        batch_val_loss_dict = self.evaluate_and_plot(Xval,
+                                                                     args, 
+                                                                     train_or_test='val',
+                                                                     num_windows=num_windows,
+                                                                     num_samples=num_samples,
+                                                                     it=it)
+                                                                                            
+                        batch_train_loss_dict = self.evaluate_and_plot(Xtrain,
+                                                                       args,
+                                                                       train_or_test='train',
+                                                                       num_windows=num_windows,
+                                                                       num_samples=num_samples,
+                                                                       it=it)
+
                 if self.mask_ratio<1 and masked_penalize==False:
                     metrics = {
                         "mse_loss": batch_loss,
@@ -636,73 +597,45 @@ class MaskedAutoencoder(nn.Module):
                 
         
         with torch.no_grad():
-            val_eval_dict = self.evaluate(val_X=Xval, args=args, lake_name=val_lake_names, train_or_val='VAL')
-            train_eval_dict = self.evaluate(val_X=Xtrain, args=args, lake_name=train_lake_names, train_or_val='TRAIN')
+            val_eval_dict = self.evaluate(val_X=Xval, args=args, train_or_val='val')
+            train_eval_dict = self.evaluate(val_X=Xtrain, args=args, train_or_val='train')
             
-            self.wandb_summarize(val_eval_dict["rmse_dict"], train_eval_dict["rmse_dict"])
-#             if self.feature_wise_rmse=='True':
-#                 for k,v in val_eval_dict["rmse_dict"].items():
-#                     if k=='RMSE':
-#                         wandb.summary['val_rmse'] = v
-#                     else:
-#                         wandb.summary[k] = v
-                
-#                 for k,v in train_eval_dict["rmse_dict"].items():
-#                     if k=='RMSE':
-#                         wandb.summary['train_rmse'] = v
-#                     else:
-#                         wandb.summary[k] = v
-                        
-#             else:
-#                 wandb.summary['val_rmse'] = val_eval_dict["rmse_dict"]['RMSE']
-#                 wandb.summary['train_rmse'] = train_eval_dict["rmse_dict"]['RMSE']
-        
+            test_eval_dict = self.evaluate_and_plot(Xval=Xtest, train_or_test='test')
+            
+            self.wandb_summarize(val_eval_dict["rmse_dict"], train_or_test='val')
+            self.wandb_summarize(train_eval_dict["rmse_dict"], train_or_test='train')
+            self.wandb_summarize(test_eval_dict, train_or_test='test')
+            wandb.finish()
+            
         return losses
     
-    def evaluate_and_plot(self, Xtrain, Xval, train_lake_names, val_lake_names, args, it=0, num_windows=25, num_samples=8):
-        # t1 = time.time()
-        # print(f"\n starting with evaluation !!!")
-        val_eval_dict = self.evaluate(val_X=Xval, args=args, lake_name=val_lake_names, train_or_val="VAL")
-        train_eval_dict = self.evaluate(val_X=Xtrain, args=args, lake_name=train_lake_names, train_or_val="TRAIN")
-        # print(f"\n done with evaluation in {time.time()-t1}")
+    def evaluate_and_plot(self, Xval, train_or_test, args, it=0, num_windows=25, num_samples=8):
+
+        val_eval_dict = self.evaluate(val_X=Xval, args=args, train_or_val=train_or_test)
         
         batch_val_loss = val_eval_dict["rmse_dict"]
-        batch_train_loss = train_eval_dict["rmse_dict"]
 
-        print(f"val avg loss = {val_eval_dict['avg_loss']}")
-        print(f"train avg loss = {train_eval_dict['avg_loss']}")
+        print(f"{train_or_test} avg loss = {val_eval_dict['avg_loss']}")
 
         val_predictions = val_eval_dict["preds"]
-        train_predictions = train_eval_dict["preds"]
 
         val_masks = val_eval_dict["mask"]
-        train_masks = train_eval_dict["mask"]
 
         val_x_gt = val_eval_dict["gt"]
-        train_x_gt = train_eval_dict["gt"]
         
         val_og_masks = val_eval_dict["og_masks"]
-        train_og_masks = train_eval_dict["og_masks"]
-        
-        train_lake_names = train_eval_dict["lake_names"]
-        val_lake_names = val_eval_dict["lake_names"]
         
         # Plotting the N_samples for each features
-        train_start = np.random.choice(len(train_x_gt), num_samples)
         val_start = np.random.choice(len(val_x_gt), num_samples)
         
         self.utils.plot_context_window_grid(val_x_gt, val_predictions, val_masks, val_og_masks,
-                                            val_start, it, val_lake_names, 'Val', title_prefix=self.masking_mode)
-        self.utils.plot_context_window_grid(train_x_gt, train_predictions, train_masks, train_og_masks,
-                                            train_start, it, train_lake_names, 'Train', title_prefix=self.masking_mode)
+                                            val_start, it, train_or_test, title_prefix=self.masking_mode)
         
         
-        self.utils.plot_context_window_grid_with_original_masks(val_x_gt, val_predictions, val_og_masks, 
-                                                                val_start, it, val_lake_names, 'Val', title_prefix=self.masking_mode)
-        self.utils.plot_context_window_grid_with_original_masks(train_x_gt, train_predictions, train_og_masks, 
-                                                                train_start, it, train_lake_names, 'Train', title_prefix=self.masking_mode)
-        
-        # print(f"\n plot context window grid with original masks took = {time.time() - t3} seconds")
+        # self.utils.plot_context_window_grid_with_original_masks(val_x_gt, val_predictions, val_og_masks, 
+        #                                                         val_start, it, 'Val', title_prefix=self.masking_mode)
+        # self.utils.plot_context_window_grid_with_original_masks(train_x_gt, train_predictions, train_og_masks, 
+        #                                                         train_start, it, 'Train', title_prefix=self.masking_mode)
         
         
         # Plotting merged context-windows for visualizing seasonal trends
@@ -712,9 +645,8 @@ class MaskedAutoencoder(nn.Module):
             val_start = idx + np.random.choice(len(val_x_gt)-idx[-1]-1, 1)
         
             self.utils.plot_merged_context_windows(val_x_gt, val_predictions, val_og_masks, val_masks, 
-                                                   val_start, it, val_lake_names, 'Val', title_prefix=self.masking_mode)
-            self.utils.plot_merged_context_windows(train_x_gt, train_predictions, train_og_masks, train_masks, 
-                                                   train_start, it, train_lake_names, 'Train', title_prefix=self.masking_mode)
+                                                   val_start, it, train_or_test, title_prefix=self.masking_mode)
+            
         elif self.masking_mode == "continuous_masking":
             
             if num_windows*self.rec_len >= len(train_x_gt):
@@ -722,54 +654,39 @@ class MaskedAutoencoder(nn.Module):
                 
             len_context_window = self.rec_len*num_windows
             
-            train_start = np.random.choice(len(train_x_gt)-len_context_window, 1) # computing starting index to shift the window
             val_start = np.random.choice(len(val_x_gt)-len_context_window, 1)
-            train_idx = np.arange(train_start, train_start+len_context_window+1, 1)
             val_idx = np.arange(val_start, val_start+len_context_window+1, 1)
             
             
-            plt_idx = np.floor(np.linspace(self.lookback_window, self.rec_len-1, 4)) # we wa
+            plt_idx = np.floor(np.linspace(self.lookback_window, self.rec_len-1, 4))
             
-            # t4 = time.time()
             self.utils.plot_forecast(val_x_gt, val_predictions, val_og_masks,
-                                  val_idx, plt_idx, self.lookback_window ,it, val_lake_names, 'Val', title_prefix=self.masking_mode)
-            self.utils.plot_forecast(train_x_gt, train_predictions, train_og_masks,
-                                  train_idx, plt_idx, self.lookback_window, it, train_lake_names, 'Train', title_prefix=self.masking_mode)
+                                  val_idx, plt_idx, self.lookback_window ,it, train_or_test, title_prefix=self.masking_mode)
             
-            # print(f"plot forecast took = {time.time()-t4} seconds")
-            
-        return batch_train_loss, batch_val_loss
+        return batch_val_loss
     
     
-    def wandb_summarize(self, val_eval_dict, train_eval_dict):
+    def wandb_summarize(self, val_eval_dict, train_or_test):
         
+        rmse=train_or_test+'_rmse'
         if self.feature_wise_rmse=='True':
             for k,v in val_eval_dict.items():
                 if k=='RMSE':
-                    wandb.summary['val_rmse'] = v
-                else:
-                    wandb.summary[k] = v
-
-            for k,v in train_eval_dict.items():
-                if k=='RMSE':
-                    wandb.summary['train_rmse'] = v
+                    wandb.summary[rmse] = v
                 else:
                     wandb.summary[k] = v
 
         else:
-            wandb.summary['val_rmse'] = val_eval_dict['RMSE']
-            wandb.summary['train_rmse'] = train_eval_dict['RMSE']
-            
-        wandb.finish()
+            wandb.summary[rmse] = val_eval_dict['RMSE']
     
-    def perform_zero_shot(self, Xtrain, Xval, args, train_lake_names, val_lake_names, lookback, utils):
+    def perform_zero_shot(self, Xtrain, Xval, args, lookback, utils):
         
         self.task_name = args['task_name']
         self.batch_size = args['batch_size']
         self.device = args['device']
         self.feature_wise_rmse = args['feature_wise_rmse']
         self.rec_len = args['window']
-        self.n2one_ft = args['n2one_ft']
+        self.n2one_ft = args['n2one']
         
         self.utils = utils
         num_windows = args["num_windows"]
@@ -792,26 +709,22 @@ class MaskedAutoencoder(nn.Module):
         
         self.to(self.device)
         
-        if self.n2one_ft=="True":
-            self.std = self.utils.feat_std[:, :, self.utils.chloro_index].unsqueeze(1).to(self.device)
-            self.mean = self.utils.feat_mean[:, :, self.utils.chloro_index].unsqueeze(1).to(self.device) 
-            self.alpha = (-self.mean/self.std)[:, :, 0]
+        if self.n2one_ft==True:
+            self.std = self.utils.feat_std[:, :, self.utils.target_index].unsqueeze(1).to(self.device)
+            self.mean = self.utils.feat_mean[:, :, self.utils.target_index].unsqueeze(1).to(self.device) 
         else:
             self.std = self.utils.feat_std.to(self.device)
             self.mean = self.utils.feat_mean.to(self.device)
-            self.alpha = (-self.mean/self.std)[:, :, self.utils.chloro_index]
 
         batch_train_loss, batch_val_loss = self.evaluate_and_plot(Xtrain, 
                                                                   Xval, 
-                                                                  train_lake_names, 
-                                                                  val_lake_names, 
                                                                   args, 
                                                                   num_windows=num_windows,
                                                                   num_samples=num_samples)
         self.wandb_summarize(batch_val_loss, batch_train_loss)
         
             
-    def predict(self, X, lake_names, args):
+    def predict(self, X, args):
         self.eval() # setting model to eval mode
         
         self.batch_size = args['batch_size']
@@ -839,12 +752,10 @@ class MaskedAutoencoder(nn.Module):
         # param_groups = optim_factory.add_weight_decay(model, args.weight_decay)
         # eff_batch_size = self.batch_size * self.accum_iter
     
-        dataset = MAEDataset(Xval, M, lake_names)
-        dataloader = DataLoader(
-                                dataset,
+        dataset = MAEDataset(Xval, M)
+        dataloader = DataLoader(dataset,
                                 batch_size=self.batch_size,
-                                shuffle=False,
-                            )
+                                shuffle=False)
 
         samples_list = []
         preds_list = []
@@ -852,15 +763,14 @@ class MaskedAutoencoder(nn.Module):
         nasks_list = []
         batch_loss = 0
         og_masks_list = []
-        lake_names_ls = []
         
-        for it, (samples, masks, lake_names) in tqdm(enumerate(dataloader)):
+        for it, (samples, masks) in tqdm(enumerate(dataloader)):
                 
             with torch.cuda.amp.autocast():
                 pred, mask, nask = self(samples, masks)
                 
-                if self.n2one_ft=="True":
-                    samples = samples[:, :, self.utils.chloro_index].unsqueeze(2)
+                if self.n2one_ft==True:
+                    samples = samples[:, :, self.utils.target_index].unsqueeze(2)
                 
                 # samples_list.append(samples.transpose(1, 2).detach())
                 samples_list.append(samples.detach())
@@ -868,7 +778,6 @@ class MaskedAutoencoder(nn.Module):
                 masks_list.append(mask.detach())
                 nasks_list.append(nask.detach())
                 og_masks_list.append(masks.detach())
-                lake_names_ls += list(lake_names)
                     
                 loss, _, _ = self.forward_loss(samples, pred, mask, nask, masks)
                 
@@ -880,7 +789,6 @@ class MaskedAutoencoder(nn.Module):
         masks_list = torch.cat(masks_list, dim=0)
         nasks_list = torch.cat(nasks_list, dim=0)
         og_masks_list = torch.cat(og_masks_list, dim=0)
-        # lake_names_ls = torch.cat(lake_names_ls, dim=0)
         
             # Convert to torch
         # batch_loss = batch_loss/n_batches
@@ -892,20 +800,18 @@ class MaskedAutoencoder(nn.Module):
             "samples":samples_list,
             "masks":masks_list,
             "nasks":nasks_list,
-            "og_masks":og_masks_list,
-            "lake_names":lake_names_ls
+            "og_masks":og_masks_list
         }
         return metrics
     
-    def evaluate(self, val_X, args, lake_name, train_or_val):
+    def evaluate(self, val_X, args, train_or_val):
         
-        metrics = self.predict(val_X, lake_name, args)
+        metrics = self.predict(val_X, args)
         predictions = metrics['pred']
         masks = metrics['masks']
         val_X = metrics["samples"]
         loss = metrics['batch_loss']
         og_masks = metrics['og_masks']
-        lake_names = metrics['lake_names']
         
         '''
         rmse
@@ -940,7 +846,6 @@ class MaskedAutoencoder(nn.Module):
                 sqred_err = (predictions-val_X)**2
                 sum_sqred_err = (sqred_err*twodmasks).sum((0,1))
                 feature_wise_rmse = (sum_sqred_err/twodmasks.sum((0,1)))**0.5
-                # feature_wise_rmse = ((predictions-val_X)**2).mean(dim=(0, 1))**0.5
                 RMSE_dict = {train_or_val+"_"+self.utils.inp_cols[idx]:feature_wise_rmse[idx].item() for idx in range(self.num_feats)}
             
             RMSE = (((predictions-val_X)**2).mean())**0.5
@@ -957,9 +862,7 @@ class MaskedAutoencoder(nn.Module):
             RMSE = ((sqred_err*twodmasks).sum() / twodmasks.sum())**0.5
             RMSE_dict["RMSE"] = RMSE.item()
 
-        # rmse1 = (((pred-gt)**2).mean())**0.5
-        # rmse2 = ((((pred-gt)**2).mean(dim=(-2, -1)))**0.5).mean()
-        return {'avg_loss':loss, 'rmse_dict':RMSE_dict, 'preds':predictions, 'gt': val_X, 'mask': masks, 'og_masks':og_masks, 'lake_names':lake_names}
+        return {'avg_loss':loss, 'rmse_dict':RMSE_dict, 'preds':predictions, 'gt': val_X, 'mask': masks, 'og_masks':og_masks}
     
 
 def mae_base(**kwargs):

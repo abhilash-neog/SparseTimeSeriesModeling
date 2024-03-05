@@ -66,7 +66,7 @@ parser.add_argument('--window', type=int, default=432, help='window for pretrain
 parser.add_argument('--mask_ratio', type=float, default=0.5, help='mask ratio')
 parser.add_argument('--num_samples', type=int, default=10, help='number of sample regions to plot for each feature during pretraining')
 parser.add_argument('--num_windows', type=int, default=25, help='number of windows to generate merged plots')
-parser.add_argument('--feature_wise_mse', type=str, default='True', help='whether to plot feature-wise mse')
+parser.add_argument('--feature_wise_rmse', type=str, default='True', help='whether to plot feature-wise rmse')
 
 # finetuning task
 parser.add_argument('--lookback_window', type=int, default=336, help='past sequence length')
@@ -90,7 +90,7 @@ parser.add_argument('--weight_decay', type=float, default=0.05)
 parser.add_argument('--lr', type=float, default=5e-4)
 parser.add_argument('--blr', type=float, default=1e-4, help='base learning rate')
 parser.add_argument('--warmup_epochs', type=int, default=5, help='number of warmup epochs for learning rate')
-parser.add_argument('--max_epochs', type=int, default=40)
+parser.add_argument('--max_epochs', type=int, default=10)
 parser.add_argument('--eval_freq', type=int, default=1, help='frequency at which we are evaluating the model during training')
 
 
@@ -204,14 +204,11 @@ if args.task_name=='pretrain':
     if not os.path.exists(args.pretrain_checkpoints_dir):
         os.makedirs(args.pretrain_checkpoints_dir)
     
-    history = model.train_model(train_X, val_X, vars(args))
+    history = model.train_model(train_X, val_X, test_X, vars(args), utils=utils)
     
     model_path = os.path.join(args.pretrain_checkpoints_dir, args.ckpt_name)
     
     torch.save(model, model_path)
-    
-    if args.zero_shot=='True':
-        model.forecast_evaluate(train_X, val_X, vars(args), lookback=args.lookback_window)
         
 elif args.task_name=='finetune':
     
@@ -229,7 +226,7 @@ elif args.task_name=='finetune':
         print("Pre-trained model exists. Loading ... ")
         model = torch.load(load_model_path, map_location='cpu')
     
-    history = model.train_model(train_X, val_X, vars(args))
+    history = model.train_model(train_X, val_X, test_X, vars(args), utils=utils)
     save_model_path = os.path.join(args.finetune_checkpoints_dir, args.ckpt_name)
     torch.save(model, save_model_path)
     

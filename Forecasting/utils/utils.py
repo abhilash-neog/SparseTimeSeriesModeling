@@ -160,16 +160,15 @@ class NativeScaler:
 
 class MAEDataset(Dataset):
 
-    def __init__(self, X, M, lake_names):
+    def __init__(self, X, M):
         self.X = X
         self.M = M
-        self.lake_names = lake_names
 
     def __len__(self):
         return len(self.X)
 
     def __getitem__(self, idx: int):
-        return self.X[idx], self.M[idx], self.lake_names[idx]
+        return self.X[idx], self.M[idx]
 
 
 class Utils:
@@ -339,7 +338,7 @@ class Utils:
 
             return X
 
-    def plot_forecast(self, df, preds, og_masks, sample_idx, plt_idx, lookback_window, epoch, lake_names, train_or_val, title_prefix):
+    def plot_forecast(self, df, preds, og_masks, sample_idx, plt_idx, lookback_window, epoch, train_or_val, title_prefix):
         """
         This function plots t+plt_idx horizon plots
         """
@@ -351,8 +350,8 @@ class Utils:
         predictions = preds[sample_idx]
         
         og_mask = og_masks[sample_idx]
-        lake_name = np.array(lake_names)[sample_idx]
-        all_lake_names = ','.join(np.unique(lake_name).tolist())
+#         lake_name = np.array(lake_names)[sample_idx]
+#         all_lake_names = ','.join(np.unique(lake_name).tolist())
         
         sample_time_series = sample_time_series*og_mask
         sample_time_series = torch.where(sample_time_series==0, torch.tensor(float('nan')).to(self.device), sample_time_series)
@@ -378,7 +377,7 @@ class Utils:
                 ax.plot(dates, sample_time_series[:, sample_id, 0], label='Unmasked TS', marker='o', linestyle='-', markersize=1, 
                          color='blue')
 
-                subtitle = f'Lake {all_lake_names}: {feature_name}: Plot at t+{sample_id-lookback_window+1}'
+                subtitle = f'{feature_name}: Plot at t+{sample_id-lookback_window+1}'
                 ax.set_title(subtitle)
                 ax.set_xlabel('Time Step')
                 ax.set_ylabel('Values')
@@ -399,7 +398,7 @@ class Utils:
                     ax.plot(dates, sample_time_series[:, sample_id, idx], label='Unmasked TS', marker='o', linestyle='-', markersize=1, 
                              color='blue')
 
-                    subtitle = f'Lake {all_lake_names}: {feature_name}: Plot at t+{sample_id-lookback_window+1}'
+                    subtitle = f'{feature_name}: Plot at t+{sample_id-lookback_window+1}'
                     ax.set_title(subtitle)
                     ax.set_xlabel('Time Step')
                     ax.set_ylabel('Values')
@@ -414,7 +413,7 @@ class Utils:
         plt.close()
         
 
-    def plot_merged_context_windows(self, df, preds, og_masks, masks, sample_index, epoch, lake_names, train_or_val, title_prefix):
+    def plot_merged_context_windows(self, df, preds, og_masks, masks, sample_index, epoch, train_or_val, title_prefix):
         """
         This function plots merged context windows for random masking. 
         It assumes that stride for windowed dataset gen is 1 and data is not shuffled.
@@ -423,7 +422,6 @@ class Utils:
         df = df.detach()
         masks = masks.detach()
         og_masks = og_masks.detach()
-        # lake_names = lake_names.detach()
         
         # Extract the selected sample from the validation set and mask
         dates = range(len(sample_index)*self.pre_train_window)
@@ -432,7 +430,6 @@ class Utils:
         predictions = preds[sample_index]
         mask = masks[sample_index]
         og_mask = og_masks[sample_index]
-        lake_name = np.array(lake_names)[sample_index][0]
 
         ts = sample_time_series[0]
         ps = predictions[0]
@@ -445,19 +442,11 @@ class Utils:
             ms = torch.cat((ms, mask[i]), dim=0)
             om = torch.cat((om, og_mask[i]), dim=0)
         
-        # print(f"ts shape ={ts.shape} \nps shape = {ps.shape} \nms shape = {ms.shape}")
-        
-        # shape of ms = (875,)
         om = 1 - om
         masked_ts = ms.unsqueeze(-1) * torch.ones(1, ts.shape[1], device=ms.device)
         masked_ts = torch.logical_or(masked_ts, om)
         masked_ts = masked_ts*ts 
         # shape (875, 8)
-        
-#         print(f"ms shape = {ms.shape}")
-#         print(f"masked_ts shape = {masked_ts.shape}")
-                
-        # unmasked_ts = (1-ms).unsqueeze(1)*ts
 
         masked_ts = torch.where(masked_ts==0, torch.tensor(float('nan')).to(self.device), masked_ts)
         # unmasked_ts = torch.where(unmasked_ts== 0, torch.tensor(float('nan')).to(device), unmasked_ts)
@@ -487,7 +476,7 @@ class Utils:
             ax.plot(dates, masked_ts[:, idx], label='Masked TS', marker='o', linestyle='-', markersize=1,
                      markerfacecolor='red', markeredgecolor='red', color='red', alpha=0.7)
             
-            subtitle = 'Lake {}: {}'.format(lake_name, feature_name)
+            subtitle = '{}'.format(feature_name)
             ax.set_title(subtitle)
             ax.set_xlabel('Time Step')
             ax.set_ylabel('Values')
@@ -501,7 +490,7 @@ class Utils:
         plt.close()
     
     
-    def plot_context_window_grid_with_original_masks(self, df, preds, og_masks, sample_index, epoch, lake_names, train_or_val, title_prefix):
+    def plot_context_window_grid_with_original_masks(self, df, preds, og_masks, sample_index, epoch, train_or_val, title_prefix):
         """
         This function creates a grid of size Number of features X Num_Samples
         where num_samples = len(sample_index)
@@ -514,7 +503,6 @@ class Utils:
         sample_time_series = df[sample_index] # GT
         predictions = preds[sample_index]
         og_mask = og_masks[sample_index]
-        lake_names = np.array(lake_names)[sample_index]
 
         og_masked_ts = og_mask*sample_time_series
         og_masked_ts = torch.where(og_masked_ts==0, torch.tensor(float('nan')).to(self.device), og_masked_ts)
@@ -536,7 +524,6 @@ class Utils:
                 # for idx in range(num_feats):
                 # ax = axes[idx, sample_id]      
                 ax = axes[sample_id]
-                lake = lake_names[sample_id]
                 
                 feature_name = self.inp_cols[self.chloro_index]#[idx]
                 dates = np.arange(predictions.shape[1])
@@ -545,11 +532,10 @@ class Utils:
                         color='green')
                 ax.plot(dates, masked_ts[sample_id, :, 0], label='Original TS', marker='o', linestyle='-', markersize=1, 
                          color='blue')
-                # ax.plot(dates, masked_ts[sample_id, :, 0], label='Original Masked TS', marker='o', linestyle='-', markersize=1,
-                #          markerfacecolor='yellow', markeredgecolor='yellow', color='yellow', alpha=0.9)
+               
                 ax.axvline(x=self.lookback_window, color='black', linestyle='-', linewidth=2)
                 
-                subtitle = 'Lake {}: {}'.format(lake, feature_name)
+                subtitle = '{}'.format(feature_name)
                 ax.set_title(subtitle)
                 ax.set_xlabel('Time Step')
                 ax.set_ylabel('Values')
@@ -557,7 +543,6 @@ class Utils:
                 ax.legend(loc="best")
         else:
             for sample_id in range(num_samples):
-                lake = lake_names[sample_id]
                 
                 for idx in range(num_feats):
                     ax = axes[idx, sample_id]      
@@ -568,14 +553,12 @@ class Utils:
                             color='green')
                     ax.plot(dates, masked_ts[sample_id, :, idx], label='Original TS', marker='o', linestyle='-', markersize=1, 
                          color='blue')
-                    # ax.plot(dates, masked_ts[sample_id, :, idx], label='Original Masked TS', marker='o', linestyle='-', markersize=1,
-                    #          markerfacecolor='yellow', markeredgecolor='yellow', color='yellow', alpha=0.9)
                     
                     if self.task_name=='finetune' or self.task_name=='zeroshot':
                         plt.tight_layout()
                         ax.axvline(x=self.lookback_window, color='black', linestyle='-', linewidth=2)
                         
-                    subtitle = 'Lake {}: {}'.format(lake, feature_name)
+                    subtitle = '{}'.format(feature_name)
                     ax.set_title(subtitle)
                     ax.set_xlabel('Time Step')
                     ax.set_ylabel('Values')
@@ -588,7 +571,7 @@ class Utils:
         wandb.log({title: wandb.Image(plt)})
         plt.close()
     
-    def plot_context_window_grid(self, df, preds, masks, og_masks, sample_index, epoch, lake_names, train_or_val, title_prefix):
+    def plot_context_window_grid(self, df, preds, masks, og_masks, sample_index, epoch, train_or_val, title_prefix):
         """
         This function creates a grid of size Number of features X Num_Samples
         where num_samples = len(sample_index)
@@ -597,16 +580,11 @@ class Utils:
         df = df.detach()
         masks = masks.detach()
         og_masks = og_masks.detach()
-        # lake_names = lake_names.detach()
         
         sample_time_series = df[sample_index] # GT
         predictions = preds[sample_index]
         mask = masks[sample_index]
         og_mask = og_masks[sample_index]
-        # print(f"lake names = {lake_names[0]}")
-        # print(f"lake names II = {lake_names[1]}")
-        # print(f"len of lake names = {len(lake_names)}")
-        lake_names = np.array(lake_names)[sample_index]
         
         og_mask = 1-og_mask
         mask = mask.unsqueeze(-1) * torch.ones(1, predictions.shape[2], device=mask.device)
@@ -628,12 +606,10 @@ class Utils:
         if self.n2one=="True":
             
             for sample_id in range(num_samples):
-                # for idx in range(num_feats):
-                # ax = axes[idx, sample_id]      
+   
                 ax = axes[sample_id]
                 
                 feature_name = self.inp_cols[self.chloro_index]#[idx]
-                lake = lake_names[sample_id]
                 dates = np.arange(predictions.shape[1])
                 plt.tight_layout()
                 ax.plot(dates, predictions[sample_id, :, 0], label='Predictions TS', marker='o', linestyle='-', markersize=1,
@@ -645,7 +621,7 @@ class Utils:
                 
                 ax.axvline(x=self.lookback_window, color='black', linestyle='-', linewidth=2)
                 
-                subtitle = 'Lake {}: {}'.format(lake, feature_name)
+                subtitle = '{}'.format(feature_name)
                 ax.set_title(subtitle)
                 ax.set_xlabel('Time Step')
                 ax.set_ylabel('Values')
@@ -653,7 +629,7 @@ class Utils:
                 ax.legend(loc="best")
         else:
             for sample_id in range(num_samples):
-                lake = lake_names[sample_id]
+                
                 for idx in range(num_feats):
                     ax = axes[idx, sample_id]      
 
@@ -670,7 +646,7 @@ class Utils:
                         plt.tight_layout()
                         ax.axvline(x=self.lookback_window, color='black', linestyle='-', linewidth=2)
                     
-                    subtitle = 'Lake {}: {}'.format(lake, feature_name)
+                    subtitle = '{}'.format(feature_name)
                     ax.set_title(subtitle)
                     ax.set_xlabel('Time Step')
                     ax.set_ylabel('Values')
