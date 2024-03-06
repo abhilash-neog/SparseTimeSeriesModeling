@@ -193,15 +193,13 @@ class Utils:
     def load_pickle(self, path):
         
         with open(path, 'rb') as pickle_file:
-            lake_arr = pickle.load(pickle_file)
+            arr = pickle.load(pickle_file)
         
-        return lake_arr
+        return arr
         
     def split_data(self, df, ratios):
         '''
-        This is specifically for the ETT dataset
-        
-        TODO: Make it generic
+        For ETT we follow 6:2:2 ratio, and for other datasets, it is usually. 7:1:1
         '''
         total_rows = len(df)
         train_ratio = ratios['train']
@@ -350,8 +348,6 @@ class Utils:
         predictions = preds[sample_idx]
         
         og_mask = og_masks[sample_idx]
-#         lake_name = np.array(lake_names)[sample_idx]
-#         all_lake_names = ','.join(np.unique(lake_name).tolist())
         
         sample_time_series = sample_time_series*og_mask
         sample_time_series = torch.where(sample_time_series==0, torch.tensor(float('nan')).to(self.device), sample_time_series)
@@ -442,11 +438,19 @@ class Utils:
             ms = torch.cat((ms, mask[i]), dim=0)
             om = torch.cat((om, og_mask[i]), dim=0)
         
+        # print(f"ts shape ={ts.shape} \nps shape = {ps.shape} \nms shape = {ms.shape}")
+        
+        # shape of ms = (875,)
         om = 1 - om
         masked_ts = ms.unsqueeze(-1) * torch.ones(1, ts.shape[1], device=ms.device)
         masked_ts = torch.logical_or(masked_ts, om)
         masked_ts = masked_ts*ts 
         # shape (875, 8)
+        
+#         print(f"ms shape = {ms.shape}")
+#         print(f"masked_ts shape = {masked_ts.shape}")
+                
+        # unmasked_ts = (1-ms).unsqueeze(1)*ts
 
         masked_ts = torch.where(masked_ts==0, torch.tensor(float('nan')).to(self.device), masked_ts)
         # unmasked_ts = torch.where(unmasked_ts== 0, torch.tensor(float('nan')).to(device), unmasked_ts)
@@ -498,12 +502,11 @@ class Utils:
         preds = preds.detach()
         df = df.detach()
         og_masks = og_masks.detach()
-        # lake_names = lake_names.detach()
         
         sample_time_series = df[sample_index] # GT
         predictions = preds[sample_index]
         og_mask = og_masks[sample_index]
-
+        
         og_masked_ts = og_mask*sample_time_series
         og_masked_ts = torch.where(og_masked_ts==0, torch.tensor(float('nan')).to(self.device), og_masked_ts)
         
@@ -532,7 +535,8 @@ class Utils:
                         color='green')
                 ax.plot(dates, masked_ts[sample_id, :, 0], label='Original TS', marker='o', linestyle='-', markersize=1, 
                          color='blue')
-               
+                # ax.plot(dates, masked_ts[sample_id, :, 0], label='Original Masked TS', marker='o', linestyle='-', markersize=1,
+                #          markerfacecolor='yellow', markeredgecolor='yellow', color='yellow', alpha=0.9)
                 ax.axvline(x=self.lookback_window, color='black', linestyle='-', linewidth=2)
                 
                 subtitle = '{}'.format(feature_name)
@@ -553,6 +557,8 @@ class Utils:
                             color='green')
                     ax.plot(dates, masked_ts[sample_id, :, idx], label='Original TS', marker='o', linestyle='-', markersize=1, 
                          color='blue')
+                    # ax.plot(dates, masked_ts[sample_id, :, idx], label='Original Masked TS', marker='o', linestyle='-', markersize=1,
+                    #          markerfacecolor='yellow', markeredgecolor='yellow', color='yellow', alpha=0.9)
                     
                     if self.task_name=='finetune' or self.task_name=='zeroshot':
                         plt.tight_layout()
@@ -606,7 +612,8 @@ class Utils:
         if self.n2one=="True":
             
             for sample_id in range(num_samples):
-   
+                # for idx in range(num_feats):
+                # ax = axes[idx, sample_id]      
                 ax = axes[sample_id]
                 
                 feature_name = self.inp_cols[self.chloro_index]#[idx]
@@ -629,7 +636,6 @@ class Utils:
                 ax.legend(loc="best")
         else:
             for sample_id in range(num_samples):
-                
                 for idx in range(num_feats):
                     ax = axes[idx, sample_id]      
 

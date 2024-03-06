@@ -114,7 +114,7 @@ class MaskedAutoencoder(nn.Module):
         self.encode_func = encode_func
         self.norm_field_loss = norm_field_loss
         
-        self.var_query = nn.Parameter(torch.zeros(1, 1, 1, self.embed_dim), requires_grad=True)
+        self.var_query = nn.Parameter(torch.zeros(1, 1, self.embed_dim), requires_grad=True)
         self.mhca = nn.MultiheadAttention(embed_dim=self.embed_dim, num_heads=self.num_heads, batch_first=True)
 
         self.mask_embed = FeatEmbed(input_dim=self.num_feats,
@@ -557,14 +557,14 @@ class MaskedAutoencoder(nn.Module):
                     
                     with torch.no_grad():
                         batch_val_loss_dict = self.evaluate_and_plot(Xval,
-                                                                     args, 
+                                                                     args=args, 
                                                                      train_or_test='val',
                                                                      num_windows=num_windows,
                                                                      num_samples=num_samples,
                                                                      it=it)
                                                                                             
                         batch_train_loss_dict = self.evaluate_and_plot(Xtrain,
-                                                                       args,
+                                                                       args=args,
                                                                        train_or_test='train',
                                                                        num_windows=num_windows,
                                                                        num_samples=num_samples,
@@ -600,7 +600,7 @@ class MaskedAutoencoder(nn.Module):
             val_eval_dict = self.evaluate(val_X=Xval, args=args, train_or_val='val')
             train_eval_dict = self.evaluate(val_X=Xtrain, args=args, train_or_val='train')
             
-            test_eval_dict = self.evaluate_and_plot(Xval=Xtest, train_or_test='test')
+            test_eval_dict = self.evaluate_and_plot(Xval=Xtest, args=args, train_or_test='test')
             
             self.wandb_summarize(val_eval_dict["rmse_dict"], train_or_test='val')
             self.wandb_summarize(train_eval_dict["rmse_dict"], train_or_test='train')
@@ -628,8 +628,8 @@ class MaskedAutoencoder(nn.Module):
         # Plotting the N_samples for each features
         val_start = np.random.choice(len(val_x_gt), num_samples)
         
-        self.utils.plot_context_window_grid(val_x_gt, val_predictions, val_masks, val_og_masks,
-                                            val_start, it, train_or_test, title_prefix=self.masking_mode)
+#         self.utils.plot_context_window_grid(val_x_gt, val_predictions, val_masks, val_og_masks,
+#                                             val_start, it, train_or_test, title_prefix=self.masking_mode)
         
         
         # self.utils.plot_context_window_grid_with_original_masks(val_x_gt, val_predictions, val_og_masks, 
@@ -639,29 +639,30 @@ class MaskedAutoencoder(nn.Module):
         
         
         # Plotting merged context-windows for visualizing seasonal trends
-        if self.masking_mode == "random_masking":
-            idx = np.array([self.rec_len*i for i in range(num_windows)]) #creating a continous time-window indices
-            train_start = idx + np.random.choice(len(train_x_gt)-idx[-1]-1, 1) # computing starting index to shift the window
-            val_start = idx + np.random.choice(len(val_x_gt)-idx[-1]-1, 1)
+#         if self.masking_mode == "random_masking":
+#             idx = np.array([self.rec_len*i for i in range(num_windows)]) #creating a continous time-window indices
+            
+#             print(f"for {train_or_test}, we have len(val_x_gt) = {len(val_x_gt)} \nidx = {idx}")
+#             val_start = idx + np.random.choice(len(val_x_gt)-idx[-1]-1, 1)
         
-            self.utils.plot_merged_context_windows(val_x_gt, val_predictions, val_og_masks, val_masks, 
-                                                   val_start, it, train_or_test, title_prefix=self.masking_mode)
+#             self.utils.plot_merged_context_windows(val_x_gt, val_predictions, val_og_masks, val_masks, 
+#                                                    val_start, it, train_or_test, title_prefix=self.masking_mode)
             
-        elif self.masking_mode == "continuous_masking":
+#         if self.masking_mode == "continuous_masking":
             
-            if num_windows*self.rec_len >= len(train_x_gt):
-                num_windows = (len(train_x_gt)//self.rec_len)//2
+#             if num_windows*self.rec_len >= len(val_x_gt):
+#                 num_windows = (len(val_x_gt)//self.rec_len)//2
                 
-            len_context_window = self.rec_len*num_windows
+#             len_context_window = self.rec_len*num_windows
             
-            val_start = np.random.choice(len(val_x_gt)-len_context_window, 1)
-            val_idx = np.arange(val_start, val_start+len_context_window+1, 1)
+#             val_start = np.random.choice(len(val_x_gt)-len_context_window, 1)
+#             val_idx = np.arange(val_start, val_start+len_context_window+1, 1)
             
             
-            plt_idx = np.floor(np.linspace(self.lookback_window, self.rec_len-1, 4))
+#             plt_idx = np.floor(np.linspace(self.lookback_window, self.rec_len-1, 4))
             
-            self.utils.plot_forecast(val_x_gt, val_predictions, val_og_masks,
-                                  val_idx, plt_idx, self.lookback_window ,it, train_or_test, title_prefix=self.masking_mode)
+#             self.utils.plot_forecast(val_x_gt, val_predictions, val_og_masks,
+#                                   val_idx, plt_idx, self.lookback_window ,it, train_or_test, title_prefix=self.masking_mode)
             
         return batch_val_loss
     

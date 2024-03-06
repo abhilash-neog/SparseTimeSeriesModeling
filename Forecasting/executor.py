@@ -16,7 +16,7 @@ import timefeatures
 from model_mae import MaskedAutoencoder
 from utils import Utils
 from functools import partial
-
+from data_handler import DataHandler
 
 warnings.filterwarnings('ignore')
 '''
@@ -50,7 +50,7 @@ parser.add_argument('--task_name', type=str, required=True, default='pretrain', 
 parser.add_argument('--dataset', type=str, required=True, default='ETT', help='dataset type')
 parser.add_argument('--root_path', type=str, default='./data', help='root path of the data, code and model files')
 parser.add_argument('--source_filename', type=str, default='ETTh1', help='name of the data file')
-parser.add_argument('--timeenc', type=int, default=0, help='whether to time encode or not')
+parser.add_argument('--timeenc', type=int, default=2, choices=[0, 1, 2], help='0 indicates traditional time features, 1 indicates time-features , 2 indicates no time-feature creation')
 parser.add_argument('--freq', type=str, default='h', help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
 
 # model loader
@@ -116,81 +116,12 @@ set the cuda device
 '''
 args.device = 'cuda:' + args.device if torch.cuda.is_available() else 'cpu'
 
-
 '''
-read the file
+read and process data
 '''
+dh = DataHandler(args)
+train_X, val_X, test_X, utils = dh.handle()
 
-filepath = os.path.join(args.root_path, args.dataset, args.source_filename)
-df = pd.read_csv(filepath+'.csv')
-
-# define the feature,date and flag columns
-features_col = df.columns[1:]
-df_X = df[features_col]
-
-date_col = df.columns[0]
-df_date = df[[date_col]]
-
-
-'''
-time features
-'''
-df_date[date_col] = pd.to_datetime(df_date[date_col])
-
-if args.timeenc==0:
-    df_date['month'] = df_date.date.apply(lambda row: row.month, 1)
-    df_date['day'] = df_date.date.apply(lambda row: row.day, 1)
-    df_date['weekday'] = df_date.date.apply(lambda row: row.weekday(), 1)
-    df_date['hour'] = df_date.date.apply(lambda row: row.hour, 1)
-    df_date = df_date.drop(['date'], 1)
-elif args.timeenc==1:
-    df_date = time_features(pd.to_datetime(df_date['date'].values), freq=args.freq)
-    df_date = df_date.transpose(1, 0)
-
-df_X = pd.concat([df_X, df_date], axis=1)
-    
-'''
-initialize utils object
-'''
-utils = Utils(inp_cols=features_col, 
-              date_col=date_col, 
-              args=args,
-              stride=1)
-
-'''
-create train and val set
-'''
-ratios = {'train':0.6, 'val':0.2, 'test':0.2}
-
-train_df, val_df, test_df = utils.split_data(df_X, ratios)
-
-'''
-create windowed dataset or load one 
-'''
-data_path = os.path.join(args.root_path, args.dataset)
-
-train_X = utils.perform_windowing(train_df, data_path, name=args.source_filename, split='train')
-val_X = utils.perform_windowing(val_df, data_path, name=args.source_filename, split='val')
-test_X = utils.perform_windowing(test_df, data_path, name=args.source_filename, split='test')
-
-'''
-standardize the data
-'''
-train_X = torch.from_numpy(train_X).type(torch.Tensor)
-val_X = torch.from_numpy(val_X).type(torch.Tensor)
-test_X = torch.from_numpy(test_X).type(torch.Tensor)
-
-train_X = utils.normalize_tensor(train_X, use_stat=False)
-val_X = utils.normalize_tensor(val_X, use_stat=True)
-test_X = utils.normalize_tensor(test_X, use_stat=True)
-
-# print(f"utils mean = {utils.feat_mean.shape}")
-# print(f"utils std = {utils.feat_std.shape}")
-# print(f"train_X = {train_X[0, :10, 7:]}")
-
-# train_X = train_X.transpose(1, 2)
-# val_X = val_X.transpose(1, 2)
-# test_X = test_X.transpose(1, 2)
 
 '''
 model
@@ -229,8 +160,5 @@ elif args.task_name=='finetune':
     history = model.train_model(train_X, val_X, test_X, vars(args), utils=utils)
     save_model_path = os.path.join(args.finetune_checkpoints_dir, args.ckpt_name)
     torch.save(model, save_model_path)
-    
-    print("\n|| TEST EVALUATION ||\n")
-    model.forecast_evaluate(train_X, test_X, vars(args), lookback=args.lookback_window)
     
 print(f"Done with model {args.task_name} ")

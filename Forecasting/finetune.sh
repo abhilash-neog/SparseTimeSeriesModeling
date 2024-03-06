@@ -3,11 +3,9 @@ python -u executor.py \
     --pretrain_ckpt_name ett_v0.pth \
     --ckpt_name ett_finetuned_v0.pth \
     --device 2 \
-    --run_name ett_finetune_initial \
-    --freeze_encoder False \
-    --config_name etth1.json \
-    --source_filename ETTh1.csv \
-    --num_windows 4 \
-    --pretrain_run_name ett_pretrain_initial \
-    --window 528 \
-    --lookback_window 336
+    --run_name ettm2_finetune_initial \
+    --freeze_encoder True \
+    --source_filename ETTm2 \
+    --pretrain_run_name ettm2_pretrain_initial \
+    --dataset ETT \
+    --max_epochs 2
