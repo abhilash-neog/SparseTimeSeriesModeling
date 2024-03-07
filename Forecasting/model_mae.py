@@ -421,7 +421,7 @@ class MaskedAutoencoder(nn.Module):
         self.max_epochs = args['max_epochs']
         self.device = args['device']
         self.eval_freq = args['eval_freq']
-        self.feature_wise_rmse = args['feature_wise_rmse']
+        self.feature_wise_mse = args['feature_wise_mse']
         self.rec_len = args['window']
         self.task_name = args['task_name']
         self.n2one_ft = args['n2one']
@@ -479,8 +479,8 @@ class MaskedAutoencoder(nn.Module):
         )
 
         losses = np.full(self.max_epochs, np.nan)
-        val_rmse = []
-        train_rmse = []
+        val_mse = []
+        train_mse = []
         
         if self.n2one_ft==True:
             self.std = self.utils.feat_std[:, :, self.utils.target_index].unsqueeze(1).to(self.device)
@@ -556,42 +556,47 @@ class MaskedAutoencoder(nn.Module):
                     t0 = time.time()
                     
                     with torch.no_grad():
-                        batch_val_loss_dict = self.evaluate_and_plot(Xval,
-                                                                     args=args, 
-                                                                     train_or_test='val',
-                                                                     num_windows=num_windows,
-                                                                     num_samples=num_samples,
-                                                                     it=it)
+                        batch_val_loss_dict = self.evaluate(Xval,
+                                                            args=args, 
+                                                            train_or_val='val')
                                                                                             
-                        batch_train_loss_dict = self.evaluate_and_plot(Xtrain,
-                                                                       args=args,
-                                                                       train_or_test='train',
-                                                                       num_windows=num_windows,
-                                                                       num_samples=num_samples,
-                                                                       it=it)
+                        batch_train_loss_dict = self.evaluate(Xtrain,
+                                                              args=args,
+                                                              train_or_val='train')
 
                 if self.mask_ratio<1 and masked_penalize==False:
                     metrics = {
                         "mse_loss": batch_loss,
                         "masked_mse_loss":masked_batch_loss,
                         "unmasked_mse_loss":unmasked_batch_loss,
-                        "train_rmse":batch_train_loss_dict["RMSE"],
-                        "val_rmse":batch_val_loss_dict["RMSE"]
+                        "train_mse":batch_train_loss_dict["mse_dict"]["MSE"],
+                        "val_mse":batch_val_loss_dict["mse_dict"]["MSE"],
+                        "train_mae": batch_train_loss_dict["mae_dict"]["MAE"],
+                        "val_mae": batch_val_loss_dict["mae_dict"]["MAE"]
                     }
                 else:
                     metrics = {
                         "mse_loss":batch_loss,
-                        "train_rmse":batch_train_loss_dict["RMSE"],
-                        "val_rmse": batch_val_loss_dict["RMSE"]
+                        "train_mse":batch_train_loss_dict["mse_dict"]["MSE"],
+                        "val_mse":batch_val_loss_dict["mse_dict"]["MSE"],
+                        "train_mae": batch_train_loss_dict["mae_dict"]["MAE"],
+                        "val_mae": batch_val_loss_dict["mae_dict"]["MAE"]
                        }
                 
                 tr.set_postfix(metrics)
                 
-                if self.feature_wise_rmse=='True':
-                    batch_train_loss_dict.pop("RMSE")
-                    batch_val_loss_dict.pop("RMSE")
+                if self.feature_wise_mse=='True':
+                    batch_train_loss_dict["mse_dict"].pop("MSE")
+                    batch_val_loss_dict["mse_dict"].pop("MSE")
                     
-                    metrics = {**metrics, **batch_train_loss_dict, **batch_val_loss_dict}
+                    batch_train_loss_dict["mae_dict"].pop("MAE")
+                    batch_val_loss_dict["mae_dict"].pop("MAE")
+                    
+                    metrics = {**metrics, 
+                               **batch_train_loss_dict["mse_dict"], 
+                               **batch_val_loss_dict["mse_dict"], 
+                               **batch_train_loss_dict["mae_dict"], 
+                               **batch_val_loss_dict["mae_dict"]}
                 
                 wandb.log(metrics)
                 
@@ -600,11 +605,17 @@ class MaskedAutoencoder(nn.Module):
             val_eval_dict = self.evaluate(val_X=Xval, args=args, train_or_val='val')
             train_eval_dict = self.evaluate(val_X=Xtrain, args=args, train_or_val='train')
             
-            test_eval_dict = self.evaluate_and_plot(Xval=Xtest, args=args, train_or_test='test')
+            test_eval_dict_mse, test_eval_dict_mae = self.evaluate_and_plot(Xval=Xtest, args=args, train_or_test='test')
             
-            self.wandb_summarize(val_eval_dict["rmse_dict"], train_or_test='val')
-            self.wandb_summarize(train_eval_dict["rmse_dict"], train_or_test='train')
-            self.wandb_summarize(test_eval_dict, train_or_test='test')
+            self.wandb_summarize(val_eval_dict["mse_dict"], train_or_test='val')
+            self.wandb_summarize(train_eval_dict["mse_dict"], train_or_test='train')
+            
+            self.wandb_summarize(val_eval_dict["mae_dict"], train_or_test='val')
+            self.wandb_summarize(train_eval_dict["mae_dict"], train_or_test='train')
+            
+            self.wandb_summarize(test_eval_dict_mse, train_or_test='test')
+            self.wandb_summarize(test_eval_dict_mae, train_or_test='test')
+            
             wandb.finish()
             
         return losses
@@ -613,9 +624,10 @@ class MaskedAutoencoder(nn.Module):
 
         val_eval_dict = self.evaluate(val_X=Xval, args=args, train_or_val=train_or_test)
         
-        batch_val_loss = val_eval_dict["rmse_dict"]
+        val_mse = val_eval_dict["mse_dict"]
+        val_mae = val_eval_dict["mae_dict"]
 
-        print(f"{train_or_test} avg loss = {val_eval_dict['avg_loss']}")
+        print(f"{train_or_test} avg batch loss = {val_eval_dict['avg_loss']}")
 
         val_predictions = val_eval_dict["preds"]
 
@@ -626,7 +638,7 @@ class MaskedAutoencoder(nn.Module):
         val_og_masks = val_eval_dict["og_masks"]
         
         # Plotting the N_samples for each features
-        val_start = np.random.choice(len(val_x_gt), num_samples)
+        # val_start = np.random.choice(len(val_x_gt), num_samples)
         
 #         self.utils.plot_context_window_grid(val_x_gt, val_predictions, val_masks, val_og_masks,
 #                                             val_start, it, train_or_test, title_prefix=self.masking_mode)
@@ -648,44 +660,44 @@ class MaskedAutoencoder(nn.Module):
 #             self.utils.plot_merged_context_windows(val_x_gt, val_predictions, val_og_masks, val_masks, 
 #                                                    val_start, it, train_or_test, title_prefix=self.masking_mode)
             
-#         if self.masking_mode == "continuous_masking":
+        if self.masking_mode == "continuous_masking":
             
-#             if num_windows*self.rec_len >= len(val_x_gt):
-#                 num_windows = (len(val_x_gt)//self.rec_len)//2
+            if num_windows*self.rec_len >= len(val_x_gt):
+                num_windows = (len(val_x_gt)//self.rec_len)//2
                 
-#             len_context_window = self.rec_len*num_windows
+            len_context_window = self.rec_len*num_windows
             
-#             val_start = np.random.choice(len(val_x_gt)-len_context_window, 1)
-#             val_idx = np.arange(val_start, val_start+len_context_window+1, 1)
+            val_start = np.random.choice(len(val_x_gt)-len_context_window, 1)
+            val_idx = np.arange(val_start, val_start+len_context_window+1, 1)
             
             
-#             plt_idx = np.floor(np.linspace(self.lookback_window, self.rec_len-1, 4))
+            plt_idx = np.floor(np.linspace(self.lookback_window, self.rec_len-1, 4))
             
-#             self.utils.plot_forecast(val_x_gt, val_predictions, val_og_masks,
-#                                   val_idx, plt_idx, self.lookback_window ,it, train_or_test, title_prefix=self.masking_mode)
+            self.utils.plot_forecast(val_x_gt, val_predictions, val_og_masks,
+                                  val_idx, plt_idx, self.lookback_window ,it, train_or_test, title_prefix=self.masking_mode)
             
-        return batch_val_loss
+        return val_mse, val_mae
     
     
     def wandb_summarize(self, val_eval_dict, train_or_test):
         
-        rmse=train_or_test+'_rmse'
-        if self.feature_wise_rmse=='True':
-            for k,v in val_eval_dict.items():
-                if k=='RMSE':
-                    wandb.summary[rmse] = v
-                else:
-                    wandb.summary[k] = v
-
-        else:
-            wandb.summary[rmse] = val_eval_dict['RMSE']
-    
+        mse=train_or_test+'_mse'
+        mae=train_or_test+'_mae'
+        
+        for k,v in val_eval_dict.items():
+            if k=='MSE':
+                wandb.summary[mse] = v
+            elif k=='MAE':
+                wandb.summary[mae] = v
+            else:
+                wandb.summary[k] = v
+                
     def perform_zero_shot(self, Xtrain, Xval, args, lookback, utils):
         
         self.task_name = args['task_name']
         self.batch_size = args['batch_size']
         self.device = args['device']
-        self.feature_wise_rmse = args['feature_wise_rmse']
+        self.feature_wise_mse = args['feature_wise_mse']
         self.rec_len = args['window']
         self.n2one_ft = args['n2one']
         
@@ -791,8 +803,6 @@ class MaskedAutoencoder(nn.Module):
         nasks_list = torch.cat(nasks_list, dim=0)
         og_masks_list = torch.cat(og_masks_list, dim=0)
         
-            # Convert to torch
-        # batch_loss = batch_loss/n_batches
         batch_loss = batch_loss/len(dataloader)
         
         metrics = {
@@ -814,56 +824,43 @@ class MaskedAutoencoder(nn.Module):
         loss = metrics['batch_loss']
         og_masks = metrics['og_masks']
         
-        '''
-        rmse
-        '''
         predictions = predictions.to(self.device)
         val_X = val_X.to(self.device)
         
-        # if self.n2one_ft=="True":
-        #     std = self.utils.feat_std[:, :, self.utils.chloro_index].unsqueeze(1)
-        #     mean = self.utils.feat_mean[:, :, self.utils.chloro_index].unsqueeze(1)
-        # else:
-        #     std = self.utils.feat_std
-        #     mean = self.utils.feat_mean
-        # print(f"predictions shape = {predictions.shape}")
-        # print(f"val_X shape = {val_X.shape}")
-        # print(f"self std = {self.std.shape}")
-        # print(f"self mean = {self.mean.shape}")
-        
         predictions = predictions*self.std + self.mean
-        
         val_X = val_X*self.std + self.mean
-        
-        # print(f"masks = {masks.shape}")
-        # print(f"og_masks = {og_masks.shape}")
-        
+    
         twodmasks = masks.unsqueeze(-1) * torch.ones(1, predictions.shape[2], device=masks.device)
         twodmasks = twodmasks*og_masks
         
-        RMSE_dict = {}
-        if self.task_name == "pretrain":
-            if self.feature_wise_rmse=='True':
-                sqred_err = (predictions-val_X)**2
-                sum_sqred_err = (sqred_err*twodmasks).sum((0,1))
-                feature_wise_rmse = (sum_sqred_err/twodmasks.sum((0,1)))**0.5
-                RMSE_dict = {train_or_val+"_"+self.utils.inp_cols[idx]:feature_wise_rmse[idx].item() for idx in range(self.num_feats)}
-            
-            RMSE = (((predictions-val_X)**2).mean())**0.5
-            RMSE_dict["RMSE"] = RMSE.item()
-            
-        elif self.task_name == "finetune" or self.task_name == "zeroshot":
-            if self.feature_wise_rmse=='True':
-                sqred_err = (predictions-val_X)**2
-                sum_sqred_err = (sqred_err*twodmasks).sum((0,1))
-                feature_wise_rmse = (sum_sqred_err/twodmasks.sum((0,1)))**0.5
-                RMSE_dict = {train_or_val+"_"+self.utils.inp_cols[idx]:feature_wise_rmse[idx].item() for idx in range(self.num_feats)}
-            
+        MSE_dict = {}
+        MAE_dict = {}
+        
+        if self.feature_wise_mse=='True':
+            '''
+            MSE
+            '''
             sqred_err = (predictions-val_X)**2
-            RMSE = ((sqred_err*twodmasks).sum() / twodmasks.sum())**0.5
-            RMSE_dict["RMSE"] = RMSE.item()
+            sum_sqred_err = (sqred_err*twodmasks).sum((0,1)) # sum across batches and windows for each feature
+            feature_wise_mse = (sum_sqred_err/twodmasks.sum((0,1)))
+            MSE_dict = {train_or_val+"_"+self.utils.inp_cols[idx]:feature_wise_mse[idx].item() for idx in range(self.num_feats)}
 
-        return {'avg_loss':loss, 'rmse_dict':RMSE_dict, 'preds':predictions, 'gt': val_X, 'mask': masks, 'og_masks':og_masks}
+            '''
+            MAE
+            '''
+            abs_err = torch.abs(predictions - val_X)
+            masked_abs_err = abs_err*twodmasks
+
+            feature_wise_mae = masked_abs_err.sum((0, 1))/twodmasks.sum((0, 1))
+            MAE_dict = {train_or_val+"_"+self.utils.inp_cols[idx]:feature_wise_mae[idx].item() for idx in range(self.num_feats)}
+
+            MSE = ((((predictions-val_X)**2)*twodmasks).sum())/twodmasks.sum()
+            MSE_dict["MSE"] = MSE.item()
+            
+            MAE = ((torch.abs(predictions-val_X)*twodmasks).sum())/twodmasks.sum()
+            MAE_dict["MAE"] = MAE.item()
+
+        return {'avg_loss':loss, 'mse_dict':MSE_dict, 'mae_dict':MAE_dict, 'preds':predictions, 'gt': val_X, 'mask': masks, 'og_masks':og_masks}
     
 
 def mae_base(**kwargs):

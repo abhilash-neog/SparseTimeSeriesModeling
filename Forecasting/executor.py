@@ -66,7 +66,7 @@ parser.add_argument('--window', type=int, default=432, help='window for pretrain
 parser.add_argument('--mask_ratio', type=float, default=0.5, help='mask ratio')
 parser.add_argument('--num_samples', type=int, default=10, help='number of sample regions to plot for each feature during pretraining')
 parser.add_argument('--num_windows', type=int, default=25, help='number of windows to generate merged plots')
-parser.add_argument('--feature_wise_rmse', type=str, default='True', help='whether to plot feature-wise rmse')
+parser.add_argument('--feature_wise_mse', type=str, default='True', help='whether to plot feature-wise mse')
 
 # finetuning task
 parser.add_argument('--lookback_window', type=int, default=336, help='past sequence length')

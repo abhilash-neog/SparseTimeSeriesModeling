@@ -1,0 +1,11 @@
+python -u executor.py \
+    --task_name finetune \
+    --pretrain_ckpt_name weather_v0.pth \
+    --ckpt_name weather_finetuned_v0.pth \
+    --device 7 \
+    --run_name weather_finetune_initial \
+    --freeze_encoder True \
+    --pretrain_run_name weather_pretrain_initial \
+    --dataset Weather \
+    --max_epochs 2 \
+    --project_name weather
