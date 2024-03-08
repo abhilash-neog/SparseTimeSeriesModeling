@@ -8,4 +8,5 @@ python -u executor.py \
     --pretrain_run_name weather_pretrain_initial \
     --dataset Weather \
     --max_epochs 2 \
-    --project_name weather
+    --project_name weather \
+    --source_filename Weather 

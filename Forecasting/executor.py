@@ -128,6 +128,9 @@ model
 '''
 model = MaskedAutoencoder(utils, args, num_feats=train_X.shape[-1])
 
+
+torch.cuda.empty_cache()
+
 if args.task_name=='pretrain':
     
     args.pretrain_checkpoints_dir = os.path.join(args.pretrain_checkpoints_dir, base_run_name) 

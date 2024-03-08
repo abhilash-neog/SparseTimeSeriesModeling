@@ -469,7 +469,7 @@ class MaskedAutoencoder(nn.Module):
         if self.lr is None:  # only base_lr is specified
             self.lr = self.blr * eff_batch_size / 64
             
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr, betas=(0.9, 0.95))
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, betas=(0.9, 0.95), weight_decay=0.001)
         loss_scaler = NativeScaler()
 
         dataset = MAEDataset(Xtrain, M)

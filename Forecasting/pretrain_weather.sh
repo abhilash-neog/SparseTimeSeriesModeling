@@ -6,5 +6,5 @@ python -u executor.py \
     --source_filename Weather \
     --dataset Weather \
     --max_epochs 2 \
-    --encoder_embed_dim 128 \
+    --encoder_embed_dim 8 \
     --project_name weather
