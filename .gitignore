@@ -6,4 +6,4 @@
 *.csv
 *.log
 *.txt
-*.pth
+*.pth*
