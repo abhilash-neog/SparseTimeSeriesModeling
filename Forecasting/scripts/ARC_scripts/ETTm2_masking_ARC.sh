@@ -8,9 +8,8 @@
 
 module reset
 module load Anaconda3/2020.11
-conda init
-source ~/.bashrc
-conda activate env
+source activate env
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.conda/envs/env/lib
 
 DATASET="ETTm2"
 PRETRAIN_EPOCHS=50
