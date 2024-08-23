@@ -13,8 +13,8 @@ source ~/.bashrc
 conda activate env
 
 DATASET="ETTh1"
-PRETRAIN_EPOCHS=50
-FINETUNE_EPOCHS=10
+PRETRAIN_EPOCHS=1
+FINETUNE_EPOCHS=1
 
 BASE_PATH="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTh1/"
 ROOT_PATHS=$1
@@ -58,7 +58,7 @@ for id in $ROOT_PATHS; do
         --trial $TRIAL
 
     # FINETUNE WITH NON-FROZEN ENCODER
-    for pred_len in 96 192 336 720; do
+    for pred_len in ${PRED_LEN_ARRAY[@]}; do
         python -u executor.py \
             --task_name finetune \
             --device $DEVICE \
