@@ -285,7 +285,7 @@ class Trainer():
             train_dataset, sampler=RandomSampler(train_dataset),
             batch_size=self.batch_size,
         )
-        
+        print(f"train_dataset={len(train_dataset)}")
         '''
         Val Dataloader
         '''
@@ -294,6 +294,7 @@ class Trainer():
             val_dataset, sampler=RandomSampler(val_dataset),
             batch_size=self.batch_size,
         )
+        print(f"val_dataset={len(val_dataset)}")
         
         '''
         Test Dataloader
@@ -303,6 +304,7 @@ class Trainer():
             test_dataset, sampler=RandomSampler(test_dataset),
             batch_size=self.batch_size,
         )
+        print(f"test_dataset={len(test_dataset)}")
         
         losses = np.full(self.max_epochs, np.nan)
         val_mse = []
@@ -467,6 +469,7 @@ class Trainer():
             train_dataset, sampler=RandomSampler(train_dataset),
             batch_size=self.batch_size,
         )
+        print(f"train_dataset={len(train_dataset)}")
         
         '''
         Val Dataloader
@@ -476,7 +479,7 @@ class Trainer():
             val_dataset, sampler=RandomSampler(val_dataset),
             batch_size=self.batch_size,
         )
-        
+        print(f"val_dataset={len(val_dataset)}")
         '''
         Test Dataloader
         '''
@@ -485,6 +488,7 @@ class Trainer():
             test_dataset, sampler=RandomSampler(test_dataset),
             batch_size=self.batch_size,
         )
+        print(f"test_dataset={len(test_dataset)}")
         
         losses = np.full(self.max_epochs, np.nan)
         val_mse = []
