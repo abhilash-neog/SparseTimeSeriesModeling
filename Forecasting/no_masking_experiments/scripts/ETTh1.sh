@@ -46,7 +46,4 @@ for pred_len in 96 192 336 720; do
         --project_name ett \
         --output_path $OUTPUT_PATH \
         --seed $seed
-    
-#     python -u executor.py --task_name finetune --device $DEVICE --run_name "v11_finetune_${SOURCE_FILE}_PRED_${pred_len}_PHASE_II" --pretrain_run_name "v11_finetune_${SOURCE_FILE}_PRED_${pred_len}" --freeze_encoder "False" --max_epochs $FINETUNE_EPOCHS_NOT_FROZEN --dataset $DATASET --pred_len $pred_len --source_filename $SOURCE_FILE --pretrain_ckpt_name ckpt_latest.pth --encoder_depth 3 --encoder_num_heads 16 --encoder_embed_dim 32 --lr 0.0001 --dropout 0.2 --batch_size 16 --pretrain_checkpoints_dir "./finetune_checkpoints/"
-
 done
