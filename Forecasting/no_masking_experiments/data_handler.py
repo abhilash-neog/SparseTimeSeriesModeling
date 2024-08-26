@@ -28,9 +28,9 @@ class ETTHour():
 
     def read_data(self):
         
-        filepath = os.path.join(self.args.root_path, self.args.dataset, self.args.source_filename)
+        filepath = os.path.join(self.args.root_path, self.args.source_filename)
         
-        df = pd.read_csv(filepath+'.csv')
+        df = pd.read_csv(filepath)#+'.csv')
 
         self.features_col = df.columns[1:]
         self.date_col = df.columns[0]
@@ -115,9 +115,9 @@ class Custom():
         
     def read_data(self):
         
-        filepath = os.path.join(self.args.root_path, self.args.dataset, self.args.source_filename)
+        filepath = os.path.join(self.args.root_path, self.args.source_filename)
         
-        df = pd.read_csv(filepath+'.csv')
+        df = pd.read_csv(filepath)#+'.csv')
 
         self.features_col = df.columns[1:]
         self.date_col = df.columns[0]
