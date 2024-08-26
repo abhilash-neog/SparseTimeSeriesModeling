@@ -1,3 +1,15 @@
+#!/bin/bash
+#SBATCH -J ecltesting
+#SBATCH --account=ml4science
+#SBATCH --partition=a100_normal_q #dgx_normal_q #a100_normal_q
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=16
+#SBATCH --time=12:00:00 # 24 hours
+#SBATCH --gres=gpu:1
+
+module reset
+module load Anaconda3/2020.11
+source activate env
+
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.conda/envs/env/lib
 
 DATASET="ETT"
@@ -29,6 +41,9 @@ python -u executor.py \
     --encoder_depth 3 \
     --encoder_num_heads 16 \
     --encoder_embed_dim 32 \
+    --decoder_embed_dim 32 \
+    --decoder_depth 2 \
+    --decoder_num_heads 8 \
     --project_name ett \
     --pretrain_checkpoints_dir $PRETRAIN_CHECKPOINTS_DIR
 
@@ -40,7 +55,7 @@ for pred_len in 96 192 336 720; do
         --root_path $ROOT_PATH \
         --run_name "finetune_${SOURCE_FILE}_PRED_${pred_len}" \
         --pretrain_run_name "pretrain_${SOURCE_FILE}_mask_50" \
-        --freeze_encoder "True" \
+        --freeze_encoder "False" \
         --max_epochs $FINETUNE_EPOCHS \
         --dataset $DATASET \
         --pred_len $pred_len \
@@ -55,5 +70,5 @@ for pred_len in 96 192 336 720; do
         --project_name ett \
         --output_path $OUTPUT_PATH \
         --finetune_checkpoints_dir $FINETUNE_CHECKPOINTS_DIR \
-        --pretrain_checkpoints_dir $PRETRAIN_CHECKPOINTS_DIR \
+        --pretrain_checkpoints_dir $PRETRAIN_CHECKPOINTS_DIR
 done
