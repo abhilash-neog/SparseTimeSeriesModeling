@@ -12,6 +12,8 @@ import os
 import copy
 import time
 
+from layers.Transformer_EncDec import Decoder, DecoderLayer, Encoder, EncoderLayer
+from layers.SelfAttention_Family import DSAttention, AttentionLayer, FullAttention
 from functools import partial
 from torch.optim import lr_scheduler
 from timm.models.vision_transformer import Block
@@ -25,7 +27,7 @@ class DecoderWithLinearHead(nn.Module):
         self.encoder_embed_dim = args.encoder_embed_dim
         self.decoder_embed_dim = args.decoder_embed_dim
         self.decoder_num_heads = args.decoder_num_heads
-        self.mlp_ratio = args.mlp_ratio # need to get rid of the ViT blocks !!!!
+        self.mlp_ratio = args.mlp_ratio
         self.norm_layer = norm_layer
         self.decoder_depth = args.decoder_depth
         self.seq_len = args.seq_len
@@ -86,9 +88,10 @@ class FlattenHead(nn.Module):
         self.pred_len = args.pred_len
         self.num_feats = num_feats
         self.encoder_embed_dim = args.encoder_embed_dim
+        self.decoder_embed_dim = args.decoder_embed_dim
         
         self.decoder_inp = nn.Linear(self.seq_len, self.pred_len, bias=True)
-        self.decoder_pred = nn.Linear(self.encoder_embed_dim, self.num_feats, bias=True)
+        self.decoder_pred = nn.Linear(self.decoder_embed_dim, self.num_feats, bias=True)
         self.dropout = nn.Dropout(args.dropout)
 
     def forward(self, x, means, std):  # [bs x seq_len x d_model]
@@ -159,11 +162,26 @@ class MaskedAutoencoder(nn.Module):
         
         self.cls_token = nn.Parameter(torch.zeros(1, 1, 1, self.embed_dim))
         
-        self.encoder_blocks = nn.ModuleList([
-            Block(self.embed_dim, self.num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer)
-            for i in range(self.depth)])
+        # self.encoder_blocks = nn.ModuleList([
+        #     Block(self.embed_dim, self.num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer)
+        #     for i in range(self.depth)])
         
-        self.norm = self.norm_layer(self.embed_dim)
+        self.encoder_blocks = Encoder(
+            [
+                EncoderLayer(
+                    AttentionLayer(
+                        FullAttention(False, 1, attention_dropout=0.1,
+                                      output_attention='true'), self.embed_dim, self.num_heads),
+                    self.embed_dim,
+                    64,
+                    dropout=0.1,
+                    activation='gelu',
+                ) for l in range(self.depth)
+            ],
+            norm_layer=torch.nn.LayerNorm(self.embed_dim),
+        )
+
+        # self.norm = self.norm_layer(self.embed_dim)
 
         if self.task_name=='pretrain':
             # --------------------------------------------------------------------------
@@ -175,11 +193,26 @@ class MaskedAutoencoder(nn.Module):
 
             # self.decoder_pos_embed = nn.Parameter(torch.zeros(1, self.seq_len + 1, self.decoder_embed_dim), requires_grad=False)  # fixed sin-cos embedding
 
-            self.decoder_blocks = nn.ModuleList([
-                Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer)
-                for i in range(self.decoder_depth)])
+            # self.decoder_blocks = nn.ModuleList([
+            #     Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer)
+            #     for i in range(self.decoder_depth)])
 
-            self.decoder_norm = self.norm_layer(self.decoder_embed_dim)
+            self.decoder_blocks = Encoder(
+            [
+                EncoderLayer(
+                    AttentionLayer(
+                        FullAttention(False, 1, attention_dropout=0.1,
+                                      output_attention='true'), self.decoder_embed_dim, self.decoder_num_heads),
+                    self.decoder_embed_dim,
+                    32,
+                    dropout=0.1,
+                    activation='gelu',
+                ) for l in range(self.decoder_depth)
+            ],
+            norm_layer=torch.nn.LayerNorm(self.decoder_embed_dim),
+            )
+
+            # self.decoder_norm = self.norm_layer(self.decoder_embed_dim)
 
             # --------------------------------------------------------------------------
 
@@ -337,7 +370,7 @@ class MaskedAutoencoder(nn.Module):
         x = self.mask_embed(x)
         
         # add pos embed w/o cls token
-        x = x + self.mpl.pos_embed[:, 1:, :, :]
+        x = x + self.mpl.pos_embed[:, :, :, :]
         
         # perform cross-attention
         x = self.cross_attention(x, m)
@@ -346,46 +379,48 @@ class MaskedAutoencoder(nn.Module):
         if self.task_name=='pretrain':
             x, mask, nask, ids_restore = self.masking(x, m)
         
+        # print(f"x shape after masking = {x.shape}")
+
         # append cls token
-        cls_token = self.cls_token + self.mpl.pos_embed[:, :1, :, :]
+        # cls_token = self.cls_token + self.mpl.pos_embed[:, :1, :, :]
         
-        cls_tokens = cls_token.expand(x.shape[0], -1, -1, -1)
+        # cls_tokens = cls_token.expand(x.shape[0], -1, -1, -1)
         
-        cls_tokens = cls_tokens[:, :, 0, :]
+        # cls_tokens = cls_tokens[:, :, 0, :]
         
-        x = torch.cat((cls_tokens, x), dim=1)
+        # x = torch.cat((cls_tokens, x), dim=1)
         
         # apply Transformer blocks
-        for blk in self.encoder_blocks:
-            x = blk(x)
-        x = self.norm(x)
-        
+        # for blk in self.encoder_blocks:
+        #     x = blk(x)
+        # x = self.norm(x)
+        enc_out, attns = self.encoder_blocks(x)
+
         if self.task_name=='pretrain':
-            return x, mask, nask, ids_restore, means, stdev
+            return enc_out, mask, nask, ids_restore, means, stdev
         elif self.task_name=='finetune':
-            return x, means, stdev
+            return enc_out, means, stdev
 
     def forward_decoder(self, x, ids_restore, means, std):
         # embed tokens
-        
         x = self.decoder_embed(x)
         
         mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
         
-        x_ = torch.cat([x[:, 1:, :], mask_tokens], dim=1)  # no cls token
+        x_ = torch.cat([x[:, :, :], mask_tokens], dim=1)  # no cls token
         
         x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
         
-        x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
+        # x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
         
         # add pos embed
-        x = x + self.mpl.decoder_pos_embed
+        x = x_ + self.mpl.decoder_pos_embed
 
         # apply Transformer blocks
-        for blk in self.decoder_blocks:
-            x = blk(x)
-        x = self.decoder_norm(x)
-        
+        # for blk in self.decoder_blocks:
+        #     x = blk(x)
+        # x = self.decoder_norm(x)
+        x, attns = self.decoder_blocks(x)
         # predictor projection
         # x = torch.tanh(self.decoder_pred(x))/2 + 0.5
         x = self.mpl.decoder_pred(x)
@@ -393,7 +428,7 @@ class MaskedAutoencoder(nn.Module):
         x = nn.Dropout(p=self.dropout)(x)
         
         # remove cls token
-        x = x[:, 1:, :]
+        # x = x[:, 1:, :]
         # print(f"output shape of decoder = {x.shape}")
         # print(f"x shape = {x.shape}")
         # print(f"std shape = {std.shape}")
@@ -463,7 +498,7 @@ class MaskedAutoencoder(nn.Module):
         
         elif self.task_name=='finetune':
             latent, means, std = self.forward_encoder(data, miss_idx)
-            latent = latent[:, 1:, :]
+            latent = latent[:, :, :]
             # pred = self.dfh(latent, means, std)
             pred = self.fh(latent, means, std)[:, -self.pred_len:, :]
             return pred

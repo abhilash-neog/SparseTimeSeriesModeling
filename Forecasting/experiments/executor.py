@@ -130,9 +130,8 @@ args.device = 'cuda:' + args.device if torch.cuda.is_available() else 'cpu'
 read and process data
 '''
 dh = DataHandler(args)
-# train_X, val_X, test_X, 
 utils = dh.handle()
-# print(f"train_X shape = {train_X.shape}")
+# print(f"test_X shape = {test_X.shape}")
 
 if args.task_name=='pretrain':
     

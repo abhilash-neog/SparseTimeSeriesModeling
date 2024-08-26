@@ -1,11 +1,14 @@
 DATASET="ETT"
-SOURCE_FILE="ETTm1.csv"
+SOURCE_FILE="ETTh2"
 PRETRAIN_EPOCHS=50
 FINETUNE_EPOCHS=10
 
 DEVICE=$1
+seed=$2
 
-OUTPUT_PATH="./outputs/ETTm1/"
+OUTPUT_PATH="./outputs/etth2/"
+pretrain_checkpoints_dir="./pretrain_checkpoints/"
+finetune_checkpoints_dir="./finetune_checkpoints/"
 
 # PRETRAIN
 python -u executor.py \
@@ -20,8 +23,10 @@ python -u executor.py \
     --batch_size 16 \
     --encoder_depth 2 \
     --encoder_num_heads 8 \
-    --encoder_embed_dim 32 \
-    --project_name ett
+    --encoder_embed_dim 8 \
+    --project_name ett \
+    --seed $seed \
+    --pretrain_checkpoints_dir $pretrain_checkpoints_dir
 
 # FINETUNE WITH NON-FROZEN ENCODER
 for pred_len in 96 192 336 720; do
@@ -38,10 +43,13 @@ for pred_len in 96 192 336 720; do
         --pretrain_ckpt_name ckpt_best.pth \
         --encoder_depth 2 \
         --encoder_num_heads 8 \
-        --encoder_embed_dim 32 \
+        --encoder_embed_dim 8 \
         --lr 0.0001 \
-        --dropout 0.0 \
-        --batch_size 32 \
+        --dropout 0.4 \
+        --batch_size 16 \
         --project_name ett \
-        --output_path $OUTPUT_PATH
+        --output_path $OUTPUT_PATH \
+        --seed $seed \
+        --pretrain_checkpoints_dir $pretrain_checkpoints_dir \
+        --finetune_checkpoints_dir $finetune_checkpoints_dir
 done
