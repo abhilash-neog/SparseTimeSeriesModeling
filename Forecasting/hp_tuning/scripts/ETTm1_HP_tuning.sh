@@ -14,9 +14,12 @@ DECODER_DIM=$5
 DECODER_DEPTH=$6
 DECODER_HEADS=$7
 
-OUTPUT_PATH="./outputs/ETTm1_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}/"
-PRETRAIN_CKPT_DIR="./pretrain_checkpoints_ETTm1/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}/"
-FINETUNE_CKPT_DIR="./finetune_checkpoints_ETTm1/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}/"
+DROPOUT=$8
+FC_DROPOUT=$9
+
+OUTPUT_PATH="./outputs/ETTm1_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
+PRETRAIN_CKPT_DIR="./pretrain_checkpoints_ETTm1/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
+FINETUNE_CKPT_DIR="./finetune_checkpoints_ETTm1/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
 
 ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
@@ -32,7 +35,7 @@ python -u executor.py \
     --mask_ratio 0.50 \
     --lr 0.001 \
     --batch_size 16 \
-    --dropout 0.02 \
+    --dropout $DROPOUT \
     --encoder_depth $ENCODER_DEPTH \
     --decoder_depth $DECODER_DEPTH \
     --encoder_num_heads $ENCODER_HEADS \
@@ -60,7 +63,7 @@ for pred_len in 96 192 336 720; do
         --encoder_num_heads $ENCODER_HEADS \
         --encoder_embed_dim $ENCODER_DIM \
         --lr 0.0001 \
-        --dropout 0.02 \
+        --fc_dropout $FC_DROPOUT \
         --batch_size 32 \
         --project_name ett \
         --output_path $OUTPUT_PATH \
