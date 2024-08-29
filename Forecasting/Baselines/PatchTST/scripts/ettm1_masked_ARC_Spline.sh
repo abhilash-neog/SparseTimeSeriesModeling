@@ -2,8 +2,8 @@
 #SBATCH -J ecltesting
 #SBATCH --account=ml4science
 #SBATCH --partition=a100_normal_q #dgx_normal_q #a100_normal_q
-#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=16
-#SBATCH --time=12:00:00 # 24 hours
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=8
+#SBATCH --time=15:00:00 # 24 hours
 #SBATCH --gres=gpu:1
 
 module reset
