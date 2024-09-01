@@ -60,7 +60,7 @@ for id in $ROOT_PATHS; do
           --patch_len 16\
           --stride 8\
           --des 'Exp' \
-          --train_epochs 1\
+          --train_epochs 100\
           --patience 20\
           --lradj 'TST'\
           --gpu $DEVICES \
