@@ -89,7 +89,7 @@ class FlattenHead(nn.Module):
         
         self.decoder_inp = nn.Linear(self.seq_len, self.pred_len, bias=True)
         self.decoder_pred = nn.Linear(self.encoder_embed_dim, self.num_feats, bias=True)
-        self.dropout = nn.Dropout(args.dropout)
+        self.dropout = nn.Dropout(args.fc_dropout)
 
     def forward(self, x, means, std):  # [bs x seq_len x d_model]
         

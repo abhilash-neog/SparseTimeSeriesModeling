@@ -1,12 +1,13 @@
 DATASET="ETT"
-SOURCE_FILE="ETTh2"
+SOURCE_FILE="ETTh2.csv"
+
 PRETRAIN_EPOCHS=50
 FINETUNE_EPOCHS=10
 
 DEVICE=$1
-seed=$2
 
-OUTPUT_PATH="./outputs/etth2/"
+OUTPUT_PATH="./outputs/ETTh2/"
+ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 pretrain_checkpoints_dir="./pretrain_checkpoints/"
 finetune_checkpoints_dir="./finetune_checkpoints/"
 
@@ -14,6 +15,7 @@ finetune_checkpoints_dir="./finetune_checkpoints/"
 python -u executor.py \
     --task_name pretrain \
     --device $DEVICE \
+    --root_path $ROOT_PATH \
     --run_name "pretrain_${SOURCE_FILE}_mask_50" \
     --source_filename $SOURCE_FILE \
     --dataset $DATASET \
@@ -25,7 +27,6 @@ python -u executor.py \
     --encoder_num_heads 8 \
     --encoder_embed_dim 8 \
     --project_name ett \
-    --seed $seed \
     --pretrain_checkpoints_dir $pretrain_checkpoints_dir
 
 # FINETUNE WITH NON-FROZEN ENCODER
@@ -33,6 +34,7 @@ for pred_len in 96 192 336 720; do
     python -u executor.py \
         --task_name finetune \
         --device $DEVICE \
+        --root_path $ROOT_PATH \
         --run_name "finetune_${SOURCE_FILE}_PRED_${pred_len}" \
         --pretrain_run_name "pretrain_${SOURCE_FILE}_mask_50" \
         --freeze_encoder "False" \
@@ -49,7 +51,6 @@ for pred_len in 96 192 336 720; do
         --batch_size 16 \
         --project_name ett \
         --output_path $OUTPUT_PATH \
-        --seed $seed \
         --pretrain_checkpoints_dir $pretrain_checkpoints_dir \
         --finetune_checkpoints_dir $finetune_checkpoints_dir
 done

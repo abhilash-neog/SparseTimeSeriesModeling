@@ -63,7 +63,7 @@ parser.add_argument('--feature_wise_mse', type=str, default='True', help='whethe
 parser.add_argument('--pred_len', type=int, default=96, help='past sequence length')
 parser.add_argument('--freeze_encoder', type=str, default='True', help='whether to freeze encoder or not')
 parser.add_argument('--n2one', type=bool, default=False, help='multivariate featurest to univariate target')
-parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
+parser.add_argument('--patience', type=int, default=10, help='early stopping patience')
 parser.add_argument('--pct_start', type=float, default=0.3, help='pct_start')
 parser.add_argument('--lradj', type=str, default='type1', help='adjust learning rate')
 parser.add_argument('--output_path', type=str, default='', help='path where all output are stored')
@@ -88,6 +88,7 @@ parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--max_epochs', type=int, default=10)
 parser.add_argument('--eval_freq', type=int, default=1, help='frequency at which we are evaluating the model during training')
 parser.add_argument('--dropout', type=float, default=0.05, help='dropout')
+parser.add_argument('--fc_dropout', type=float, default=0.05, help='fine-tuning dropout')
 
 # GPU
 parser.add_argument('--device', type=str, default='3', help='cuda device')
@@ -181,6 +182,7 @@ elif args.task_name=='finetune':
     print(f"Loading best fine-tuned model for testing ...")
     ft_model = torch.load(best_model_path, map_location='cpu').to(args.device)
     
-    trainer.test(ft_model)
+    trainer.test(ft_model, flag='test')
+    trainer.test(ft_model, flag='val')
     
 print(f"Done with model {args.task_name} ")

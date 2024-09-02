@@ -92,6 +92,7 @@ parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--max_epochs', type=int, default=10)
 parser.add_argument('--eval_freq', type=int, default=1, help='frequency at which we are evaluating the model during training')
 parser.add_argument('--dropout', type=float, default=0.05, help='dropout')
+parser.add_argument('--fc_dropout', type=float, default=0.05, help='fc_dropout')
 
 # GPU
 parser.add_argument('--device', type=str, default='3', help='cuda device')

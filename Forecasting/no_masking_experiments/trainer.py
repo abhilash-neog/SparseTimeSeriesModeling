@@ -604,7 +604,7 @@ class Trainer():
                 batch_loss /= len(self.train_dataloader)
                 
                 val_mse = self.evaluate_forecast(model=self.model, dataloader=self.val_dataloader, args=self.args, train_or_val='val')['mse_dict']['MSE']
-                test_mse = self.evaluate_forecast(model=self.model, dataloader=self.test_dataloader, args=self.args, train_or_val='test')['mse_dict']['MSE']
+                # test_mse = self.evaluate_forecast(model=self.model, dataloader=self.test_dataloader, args=self.args, train_or_val='test')['mse_dict']['MSE']
                 
                 if masked_loss is not None:
                     masked_batch_loss /= len(self.train_dataloader)
@@ -629,8 +629,8 @@ class Trainer():
 
                 metrics = {
                     "train_loss": batch_loss,
-                    "val_mse": val_mse,
-                    "test_mse": test_mse
+                    "val_mse": val_mse
+                    # "test_mse": test_mse
                 }                
                 tr.set_postfix(metrics)
                 
@@ -863,16 +863,16 @@ class Trainer():
         return {'avg_loss':batch_loss, 'mse_dict':MSE_dict, 'mae_dict':MAE_dict, 'preds':predictions, 'gt': val_X, 'og_masks':og_masks}
         
         
-    def test(self, model):
-        test_data, test_dataloader = self._get_data(flag='test')
+    def test(self, model, flag='test'):
+        test_data, test_dataloader = self._get_data(flag=flag)
         
         with torch.no_grad():
             # val_eval_dict = self.evaluate_forecast(model=model, dataloader=self.val_dataloader, args=self.args, train_or_val='val')
             # train_eval_dict = self.evaluate_forecast(model=model, dataloader=self.train_dataloader, args=self.args, train_or_val='train')
             test_eval_dict = self.evaluate_forecast(model=model, dataloader=test_dataloader, args=self.args, train_or_val='test')
 
-            self.wandb_summarize(test_eval_dict["mse_dict"], train_or_test='test')
-            self.wandb_summarize(test_eval_dict["mae_dict"], train_or_test='test')
+            # self.wandb_summarize(test_eval_dict["mse_dict"], train_or_test='test')
+            # self.wandb_summarize(test_eval_dict["mae_dict"], train_or_test='test')
 
             wandb.finish()
         
@@ -883,7 +883,7 @@ class Trainer():
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
         print('{0}->{1}, mse:{2:.3f}, mae:{3:.3f}'.format(self.seq_len, self.pred_len, mse, mae))
-        f = open(folder_path+"score.txt", 'a')
+        f = open(folder_path+"score_"+flag+".txt", 'a')
         f.write('{0}->{1}, {2:.3f}, {3:.3f} \n'.format(self.seq_len, self.pred_len, mse, mae))
         f.close()
 
