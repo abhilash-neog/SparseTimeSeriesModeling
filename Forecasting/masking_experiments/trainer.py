@@ -12,6 +12,7 @@ import os
 import copy
 import time
 
+from data_provider.data_factory import data_provider
 from model import MaskedAutoencoder, DecoderWithLinearHead 
 from collections import OrderedDict
 from functools import partial
@@ -19,7 +20,7 @@ from tqdm import trange, tqdm
 from torch.utils.data import DataLoader, RandomSampler
 from torch.optim import lr_scheduler
 from timm.models.vision_transformer import Block
-from utils import MaskEmbed, MAEDataset, NativeScaler, get_1d_sincos_pos_embed, ActiveEmbed, FeatEmbed, adjust_learning_rate
+from utils.util import MaskEmbed, MAEDataset, NativeScaler, get_1d_sincos_pos_embed, ActiveEmbed, FeatEmbed, adjust_learning_rate
 from positional_encodings.torch_encodings import PositionalEncoding1D, PositionalEncoding2D
 from tools import EarlyStopping, adjust_learning_rate
 
@@ -129,37 +130,41 @@ class Trainer():
         loss_scaler = NativeScaler()
         return loss_scaler
     
-    def get_data(self, X, split_flag):
+    def _get_data(self, flag, gt=None):
+        data_set, data_loader = data_provider(self.args, flag, gt)
+        return data_set, data_loader
+    
+#     def get_data(self, X, split_flag):
         
-        M = 1 - (1 * (torch.isnan(X)))
-        M = M.float()
+#         M = 1 - (1 * (torch.isnan(X)))
+#         M = M.float()
         
-        X = torch.nan_to_num(X)
+#         X = torch.nan_to_num(X)
         
-        '''
-        Dataloader
-        '''
-        if split_flag=='test':
-            dataset = MAEDataset(X, M)
-            dataloader = DataLoader(
-                dataset,
-                shuffle=False,
-                batch_size=self.batch_size
-            )
-        else:
-            dataset = MAEDataset(X, M)
-            dataloader = DataLoader(
-                dataset, sampler=RandomSampler(dataset),
-                batch_size=self.batch_size,
-            )
-        return dataloader
+#         '''
+#         Dataloader
+#         '''
+#         if split_flag=='test':
+#             dataset = MAEDataset(X, M)
+#             dataloader = DataLoader(
+#                 dataset,
+#                 shuffle=False,
+#                 batch_size=self.batch_size
+#             )
+#         else:
+#             dataset = MAEDataset(X, M)
+#             dataloader = DataLoader(
+#                 dataset, sampler=RandomSampler(dataset),
+#                 batch_size=self.batch_size,
+#             )
+#         return dataloader
     
     def val_one_epoch(self, dataloader, split, masked_penalize):
         
         batch_loss, masked_batch_loss, unmasked_batch_loss = 0, 0, 0
         
         self.model.eval()
-        for iteration, (samples, masks) in enumerate(dataloader):
+        for iteration, (samples, _, masks, _) in enumerate(dataloader):
             samples = samples.to(self.device)
             masks = masks.to(self.device)
 
@@ -210,7 +215,7 @@ class Trainer():
         optimizer.zero_grad()
         
         self.model.train()
-        for iteration, (samples, masks) in enumerate(dataloader):
+        for iteration, (samples, _, masks, _) in enumerate(dataloader):
             samples = samples.to(self.device)
             masks = masks.to(self.device)
 
@@ -246,7 +251,6 @@ class Trainer():
             
             loss.backward()
             optimizer.step()
-            scheduler.step()
             
             # loss_scaler(loss, optimizer, parameters=self.model.parameters(), update_grad=(iteration + 1) % self.accum_iter == 0)
 
@@ -257,6 +261,8 @@ class Trainer():
             del samples
             del masks
         
+        scheduler.step()
+            
         batch_loss /= len(dataloader)
 
         if masked_loss is not None:
@@ -266,80 +272,84 @@ class Trainer():
         # losses[it] = batch_loss
         return batch_loss, masked_batch_loss, unmasked_batch_loss
         
-    def pretrain(self, Xtrain, Xval, Xtest, masked_penalize=False):
+    def pretrain(self, Xtrain=None, Xval=None, Xtest=None, masked_penalize=False):
+        
+        # data preparation
+        train_dataset, self.train_dataloader = self._get_data(flag='train')
+        val_dataset, self.val_dataloader = self._get_data(flag='val')
         
         num_windows = self.args["num_windows"]
         num_samples = self.args["num_samples"]
         
         config = init_wandb(self.args, self.task_name)
         
-        # Set missing Train
-        M = 1 - (1 * (torch.isnan(Xtrain)))
-        M = M.float()#.to(self.device)
+#         # Set missing Train
+#         M = 1 - (1 * (torch.isnan(Xtrain)))
+#         M = M.float()#.to(self.device)
         
-        Xtrain = torch.nan_to_num(Xtrain)
-        # Xtrain = Xtrain.to(self.device)
+#         Xtrain = torch.nan_to_num(Xtrain)
+#         # Xtrain = Xtrain.to(self.device)
         
-        # Set missing Val
-        M_val = 1 - (1 * (torch.isnan(Xval)))
-        M_val = M_val.float()#.to(self.device)
+#         # Set missing Val
+#         M_val = 1 - (1 * (torch.isnan(Xval)))
+#         M_val = M_val.float()#.to(self.device)
         
-        Xval = torch.nan_to_num(Xval)
-        # Xval = Xval.to(self.device)
+#         Xval = torch.nan_to_num(Xval)
+#         # Xval = Xval.to(self.device)
         
-        # Set missing Test
-        M_test = 1 - (1 * (torch.isnan(Xtest)))
-        M_test = M_test.float()#.to(self.device)
+#         # Set missing Test
+#         M_test = 1 - (1 * (torch.isnan(Xtest)))
+#         M_test = M_test.float()#.to(self.device)
         
-        Xtest = torch.nan_to_num(Xtest)
+#         Xtest = torch.nan_to_num(Xtest)
         # Xtest = Xtest.to(self.device)
         
         self.model.to(self.device)
         
-        n_batches = int(math.ceil(Xtrain.shape[0] / self.batch_size))
+        n_batches = int(math.ceil(len(train_dataset) / self.batch_size))
         
         eff_batch_size = self.batch_size * self.accum_iter
         
         if self.lr is None:  # only base_lr is specified
             self.lr = self.blr * eff_batch_size / 64
 
-        '''
-        Train dataloader
-        '''
-        train_dataset = MAEDataset(Xtrain, M)
-        self.train_dataloader = DataLoader(
-            train_dataset, sampler=RandomSampler(train_dataset),
-            batch_size=self.batch_size,
-        )
+#         '''
+#         Train dataloader
+#         '''
+#         train_dataset = MAEDataset(Xtrain, M)
+#         self.train_dataloader = DataLoader(
+#             train_dataset, sampler=RandomSampler(train_dataset),
+#             batch_size=self.batch_size,
+#         )
         
-        '''
-        Val Dataloader
-        '''
-        val_dataset = MAEDataset(Xval, M_val)
-        self.val_dataloader = DataLoader(
-            val_dataset, sampler=RandomSampler(val_dataset),
-            batch_size=self.batch_size,
-        )
+#         '''
+#         Val Dataloader
+#         '''
+#         val_dataset = MAEDataset(Xval, M_val)
+#         self.val_dataloader = DataLoader(
+#             val_dataset, sampler=RandomSampler(val_dataset),
+#             batch_size=self.batch_size,
+#         )
         
-        '''
-        Test Dataloader
-        '''
-        test_dataset = MAEDataset(Xtest, M_test)
-        self.test_dataloader = DataLoader(
-            test_dataset, sampler=RandomSampler(test_dataset),
-            batch_size=self.batch_size,
-        )
+#         '''
+#         Test Dataloader
+#         '''
+#         test_dataset = MAEDataset(Xtest, M_test)
+#         self.test_dataloader = DataLoader(
+#             test_dataset, sampler=RandomSampler(test_dataset),
+#             batch_size=self.batch_size,
+#         )
         
         losses = np.full(self.max_epochs, np.nan)
         val_mse = []
         train_mse = []
         
-        if self.n2one_ft==True:
-            self.std = self.utils.feat_std[:, :, self.utils.target_index].unsqueeze(1).to(self.device)
-            self.mean = self.utils.feat_mean[:, :, self.utils.target_index].unsqueeze(1).to(self.device) 
-        else:
-            self.std = self.utils.feat_std.to(self.device)
-            self.mean = self.utils.feat_mean.to(self.device)
+        # if self.n2one_ft==True:
+        #     self.std = self.utils.feat_std[:, :, self.utils.target_index].unsqueeze(1).to(self.device)
+        #     self.mean = self.utils.feat_mean[:, :, self.utils.target_index].unsqueeze(1).to(self.device) 
+        # else:
+        #     self.std = self.utils.feat_std.to(self.device)
+        #     self.mean = self.utils.feat_mean.to(self.device)
     
         torch.autograd.set_detect_anomaly(True)
         min_vali_loss=None
@@ -442,7 +452,12 @@ class Trainer():
             
         return losses, self.model
     
-    def finetune(self, Xtrain, Xval, Xtest, masked_penalize=False):
+    def finetune(self, Xtrain=None, Xval=None, Xtest=None, masked_penalize=False):
+        
+        # data preparation
+        train_dataset, self.train_dataloader = self._get_data(flag='train')
+        val_dataset, self.val_dataloader = self._get_data(flag='val')
+        test_dataset, self.test_dataloader = self._get_data(flag='test')
         
         num_windows = self.args["num_windows"]
         num_samples = self.args["num_samples"]
@@ -484,7 +499,7 @@ class Trainer():
         
         self.model.to(self.device)
         
-        n_batches = int(math.ceil(Xtrain.shape[0] / self.batch_size))
+        n_batches = int(math.ceil(len(train_dataset) / self.batch_size))
         
         eff_batch_size = self.batch_size * self.accum_iter
         
@@ -517,20 +532,20 @@ class Trainer():
 #             test_dataset, sampler=RandomSampler(test_dataset),
 #             batch_size=self.batch_size,
 #         )
-        self.train_dataloader = self.get_data(Xtrain, split_flag='train')
-        self.val_dataloader = self.get_data(Xval, split_flag='val')
-        self.test_dataloader = self.get_data(Xtest, split_flag='test')
+        # self.train_dataloader = self.get_data(Xtrain, split_flag='train')
+        # self.val_dataloader = self.get_data(Xval, split_flag='val')
+        # self.test_dataloader = self.get_data(Xtest, split_flag='test')
         
         losses = np.full(self.max_epochs, np.nan)
         val_mse = []
         train_mse = []
         
-        if self.n2one_ft==True:
-            self.std = self.utils.feat_std[:, :, self.utils.target_index].unsqueeze(1).to(self.device)
-            self.mean = self.utils.feat_mean[:, :, self.utils.target_index].unsqueeze(1).to(self.device) 
-        else:
-            self.std = self.utils.feat_std.to(self.device)
-            self.mean = self.utils.feat_mean.to(self.device)
+        # if self.n2one_ft==True:
+        #     self.std = self.utils.feat_std[:, :, self.utils.target_index].unsqueeze(1).to(self.device)
+        #     self.mean = self.utils.feat_mean[:, :, self.utils.target_index].unsqueeze(1).to(self.device) 
+        # else:
+        #     self.std = self.utils.feat_std.to(self.device)
+        #     self.mean = self.utils.feat_mean.to(self.device)
     
         torch.autograd.set_detect_anomaly(True)
         min_vali_loss=None
@@ -564,15 +579,16 @@ class Trainer():
                 self.model.train()
                 epoch_time = time.time()
                 
-                for iteration, (samples, masks) in enumerate(self.train_dataloader):
+                for iteration, (sample_X, sample_Y, mask_X, mask_Y) in enumerate(self.train_dataloader):
                     # samples = samples.to(self.device)
                     # masks = masks.to(self.device)
+                    sample_X = sample_X.to(self.device)
+                    mask_X = mask_X.to(self.device)
+#                     sample_X = copy.deepcopy(samples[:, :self.seq_len, :]).to(self.device)
+#                     sample_Y = copy.deepcopy(samples[:, -self.pred_len:, :]).to(self.device)
                     
-                    sample_X = copy.deepcopy(samples[:, :self.seq_len, :]).to(self.device)
-                    sample_Y = copy.deepcopy(samples[:, -self.pred_len:, :]).to(self.device)
-                    
-                    mask_X = copy.deepcopy(masks[:, :self.seq_len, :]).to(self.device)
-                    mask_Y = copy.deepcopy(masks[:, -self.pred_len:, :]).to(self.device)
+#                     mask_X = copy.deepcopy(masks[:, :self.seq_len, :]).to(self.device)
+#                     mask_Y = copy.deepcopy(masks[:, -self.pred_len:, :]).to(self.device)
                     
                     with torch.cuda.amp.autocast():
 
@@ -581,7 +597,11 @@ class Trainer():
                         
                         if self.n2one_ft==True:
                             sample_Y = sample_Y[:, :, self.utils.target_index].unsqueeze(2)
-
+                        
+                        pred = pred[:, -self.args['pred_len']:, :]
+                        sample_Y = sample_Y[:, -self.args['pred_len']:, :].to(self.device)
+                        mask_Y = mask_Y[:, -self.args['pred_len']:, :].to(self.device)
+                        
                         loss, masked_loss, unmasked_loss = self.model.forward_loss(data=sample_Y, 
                                                                                    pred=pred, 
                                                                                    miss_idx=mask_Y, 
@@ -606,14 +626,14 @@ class Trainer():
                     # loss_scaler(loss, optimizer, parameters=self.model.parameters(), update_grad=(iteration + 1) % self.accum_iter == 0)
                     loss.backward()
                     optimizer.step()
-                    scheduler.step()
+                    # scheduler.step()
                     
                     # we use a per iteration (instead of per epoch) lr scheduler
                     if (iteration + 1) % self.accum_iter == 0:
                         optimizer.zero_grad()
 
-                    del samples
-                    del masks
+                    # del samples
+                    # del masks
                 
                 print("Epoch: {} cost time: {}".format(it + 1, time.time() - epoch_time))
                 batch_loss /= len(self.train_dataloader)
@@ -800,13 +820,15 @@ class Trainer():
         batch_loss = 0
         og_masks_list = []
         
-        for it, (samples, masks) in tqdm(enumerate(dataloader)):
+        for it, (sample_X, sample_Y, mask_X, mask_Y) in tqdm(enumerate(dataloader)):
             
-            sample_X = copy.deepcopy(samples[:, :self.seq_len, :]).to(self.device)
-            sample_Y = copy.deepcopy(samples[:, -self.pred_len:, :]).to(self.device)
+#             sample_X = copy.deepcopy(samples[:, :self.seq_len, :]).to(self.device)
+#             sample_Y = copy.deepcopy(samples[:, -self.pred_len:, :]).to(self.device)
 
-            mask_X = copy.deepcopy(masks[:, :self.seq_len, :]).to(self.device)
-            mask_Y = copy.deepcopy(masks[:, -self.pred_len:, :]).to(self.device)
+#             mask_X = copy.deepcopy(masks[:, :self.seq_len, :]).to(self.device)
+#             mask_Y = copy.deepcopy(masks[:, -self.pred_len:, :]).to(self.device)
+            sample_X = sample_X.to(self.device)
+            mask_X = mask_X.to(self.device)
 
             with torch.cuda.amp.autocast():
                 pred = model(sample_X, mask_X, self.mpl)
@@ -814,20 +836,25 @@ class Trainer():
                 if self.n2one_ft==True:
                     sample_Y = sample_Y[:, :, self.utils.target_index].unsqueeze(2)
                 
-            # samples_list.append(samples.transpose(1, 2).detach())
-            samples_list.append(sample_Y.detach())
-            preds_list.append(pred.detach())
-            og_masks_list.append(mask_Y.detach())
-                    
+            pred = pred[:, -self.args['pred_len']:, :]
+            sample_Y = sample_Y[:, -self.args['pred_len']:, :].to(self.device)
+            mask_Y = mask_Y[:, -self.args['pred_len']:, :].to(self.device)
+            
             loss, _, _ = model.forward_loss(data=sample_Y, 
                                                  pred=pred, 
                                                  miss_idx=mask_Y, 
                                                  masked_penalize=True)
+            
+            samples_list.append(sample_Y.detach())
+            preds_list.append(pred.detach())
+            og_masks_list.append(mask_Y.detach())
+                    
+            
 
             loss_value = loss.item()
             batch_loss += loss_value
-            del sample_X, sample_Y, samples
-            del mask_X, mask_Y, masks
+            del sample_X, sample_Y
+            del mask_X, mask_Y
         
         val_X = torch.cat(samples_list, dim=0)
         predictions = torch.cat(preds_list, dim=0)
@@ -872,9 +899,11 @@ class Trainer():
         return {'avg_loss':batch_loss, 'mse_dict':MSE_dict, 'mae_dict':MAE_dict, 'preds':predictions, 'gt': val_X, 'og_masks':og_masks}
         
         
-    def test(self, model, test_X_):
+    def test(self, model, flag='test'):
         
-        gt_test_dataloader = self.get_data(test_X_, split_flag='test')
+        # gt_test_dataloader = self.get_data(test_X_, split_flag='test')
+        test_data, test_dataloader = self._get_data(flag=flag)
+        gt_test_data, gt_test_dataloader = self._get_data(flag=flag, gt=True)
         
         self.device = self.args['device']
         
@@ -890,60 +919,46 @@ class Trainer():
 
         model.eval()
         with torch.no_grad():
-            for it, (samples, masks) in tqdm(enumerate(self.test_dataloader)):
+            for it, (sample_X, sample_Y, mask_X, mask_Y) in tqdm(enumerate(test_dataloader)):
             
-                sample_X = copy.deepcopy(samples[:, :self.seq_len, :]).to(self.device)
-                sample_Y = copy.deepcopy(samples[:, -self.pred_len:, :]).to(self.device)
-
-                mask_X = copy.deepcopy(masks[:, :self.seq_len, :]).to(self.device)
-                mask_Y = copy.deepcopy(masks[:, -self.pred_len:, :]).to(self.device)
+                sample_X = sample_X.to(self.device)
+                mask_X = mask_X.to(self.device)
 
                 with torch.cuda.amp.autocast():
                     pred = model(sample_X, mask_X, self.mpl)
                     
                     if self.n2one_ft==True:
                         sample_Y = sample_Y[:, :, self.utils.target_index].unsqueeze(2)
-                    
-                # samples_list.append(samples.transpose(1, 2).detach())
-                # samples_list.append(sample_Y.detach())
+                
+                pred = pred[:, -self.args['pred_len']:, :]
+                sample_Y = sample_Y[:, -self.args['pred_len']:, :].to(self.device)
+                mask_Y = mask_Y[:, -self.args['pred_len']:, :].to(self.device)
+                
                 preds_list.append(pred.detach())
-                # og_masks_list.append(mask_Y.detach())
-                        
-                # loss, _, _ = model.forward_loss(data=sample_Y, 
-                #                                      pred=pred, 
-                #                                      miss_idx=mask_Y, 
-                #                                      masked_penalize=True)
 
-                # loss_value = loss.item()
-                # batch_loss += loss_value
-                del sample_X, sample_Y, samples
-                del mask_X, mask_Y, masks
+                del sample_X, sample_Y
+                del mask_X, mask_Y
             
-        for it, (samples, masks) in tqdm(enumerate(gt_test_dataloader)):
+        for it, (sample_X, sample_Y, mask_X, mask_Y) in tqdm(enumerate(gt_test_dataloader)):
             
-            sample_X = copy.deepcopy(samples[:, :self.seq_len, :]).to(self.device)
-            sample_Y = copy.deepcopy(samples[:, -self.pred_len:, :]).to(self.device)
-
-            mask_X = copy.deepcopy(masks[:, :self.seq_len, :]).to(self.device)
-            mask_Y = copy.deepcopy(masks[:, -self.pred_len:, :]).to(self.device)
+            sample_X = sample_X.to(self.device)
+            mask_X = mask_X.to(self.device)
 
             if self.n2one_ft==True:
                 sample_Y = sample_Y[:, :, self.utils.target_index].unsqueeze(2)
-                
-            # samples_list.append(samples.transpose(1, 2).detach())
+            
+            sample_Y = sample_Y[:, -self.args['pred_len']:, :].to(self.device)
+            mask_Y = mask_Y[:, -self.args['pred_len']:, :].to(self.device)
+            
             samples_list.append(sample_Y.detach())
-            # preds_list.append(pred.detach())
             og_masks_list.append(mask_Y.detach())
             
-            del sample_X, sample_Y, samples
-            del mask_X, mask_Y, masks
+            del sample_X, sample_Y
+            del mask_X, mask_Y
         
         val_X = torch.cat(samples_list, dim=0)
         predictions = torch.cat(preds_list, dim=0)
         og_masks = torch.cat(og_masks_list, dim=0)
-        
-        # predictions = predictions*self.std + self.mean
-        # val_X = val_X*self.std + self.mean
         
         twodmasks = og_masks
         
@@ -956,6 +971,9 @@ class Trainer():
                 '''
                 MSE
                 '''
+                print(f"predictions shape = {predictions.shape}")
+                print(f"val_X shape = {val_X.shape}")
+                
                 sqred_err = (predictions-val_X)**2
                 sum_sqred_err = (sqred_err*twodmasks).sum((0,1)) # sum across batches and windows for each feature
                 feature_wise_mse = (sum_sqred_err/twodmasks.sum((0,1)))
@@ -976,10 +994,10 @@ class Trainer():
             MAE = ((torch.abs(predictions-val_X)*twodmasks).sum())/twodmasks.sum()
             MAE_dict["MAE"] = MAE.item()
         
-        self.wandb_summarize(MSE_dict, train_or_test='test')
-        self.wandb_summarize(MAE_dict, train_or_test='test')
+#         self.wandb_summarize(MSE_dict, train_or_test='test')
+#         self.wandb_summarize(MAE_dict, train_or_test='test')
 
-        wandb.finish()
+#         wandb.finish()
         
         mse = MSE_dict['MSE']
         mae = MAE_dict['MAE']

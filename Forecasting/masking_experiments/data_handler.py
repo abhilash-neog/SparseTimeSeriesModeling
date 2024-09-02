@@ -13,7 +13,7 @@ import math
 import datetime
 import timefeatures
 
-from utils import Utils
+from utils.util import Utils
 from functools import partial
 
 
@@ -26,19 +26,11 @@ class ETTHour():
                              'test':0.2}
         self.args = args
 
-    def read_data(self, gt=None):
+    def read_data(self):
         
-        if gt is not None:
-            root_path=self.args.gt_root_path
-            data_path=self.args.gt_source_filename
-        else:
-            root_path=self.args.root_path
-            data_path=self.args.source_filename
-            
-        # filepath = os.path.join(self.args.root_path, self.args.dataset, self.args.source_filename)
-        filepath = os.path.join(root_path, data_path)
+        filepath = os.path.join(self.args.root_path, self.args.source_filename)
         
-        df = pd.read_csv(filepath+'.csv')
+        df = pd.read_csv(filepath)#+'.csv')
 
         self.features_col = df.columns[1:]
         self.date_col = df.columns[0]
@@ -76,19 +68,11 @@ class ETTMin():
                              'test':0.2}
         self.args = args
 
-    def read_data(self, gt=None):
+    def read_data(self):
         
-        if gt is not None:
-            root_path=self.args.gt_root_path
-            data_path=self.args.gt_source_filename
-        else:
-            root_path=self.args.root_path
-            data_path=self.args.source_filename
-            
-        # filepath = os.path.join(self.args.root_path, self.args.dataset, self.args.source_filename)
-        filepath = os.path.join(root_path, data_path)
+        filepath = os.path.join(self.args.root_path, self.args.source_filename)
         
-        df = pd.read_csv(filepath+'.csv')
+        df = pd.read_csv(filepath)#+'.csv')
 
         self.features_col = df.columns[1:]
         self.date_col = df.columns[0]
@@ -129,19 +113,11 @@ class Custom():
         self.args = args
         self.target = target
         
-    def read_data(self, gt=None):
+    def read_data(self):
         
-        if gt is not None:
-            root_path=self.args.gt_root_path
-            data_path=self.args.gt_source_filename
-        else:
-            root_path=self.args.root_path
-            data_path=self.args.source_filename
+        filepath = os.path.join(self.args.root_path, self.args.source_filename)
         
-        # filepath = os.path.join(self.args.root_path, self.args.dataset, self.args.source_filename)
-        filepath = os.path.join(root_path, data_path)
-        
-        df = pd.read_csv(filepath+'.csv')
+        df = pd.read_csv(filepath)#+'.csv')
 
         self.features_col = df.columns[1:]
         self.date_col = df.columns[0]
@@ -196,33 +172,33 @@ class DataHandler():
         }
         
         self.args = args
-        if args.dataset=='ETT':
-            self.dataClass = data_map[args.source_filename]
-        else:
-            self.dataClass = data_map[args.dataset]
+        # if args.dataset=='ETT':
+        #     self.dataClass = data_map[args.source_filename[:-4]]
+        # else:
+        self.dataClass = data_map[args.dataset]
             
-    def handle(self, gt=None):
+    def handle(self):
         
-        handler = self.dataClass(self.args)
+        self.handler = self.dataClass(self.args)
         
         '''
         read the file
         '''
-        df = handler.read_data(gt)
+        df = self.handler.read_data()
 
         '''
         add time features - if timeenc is set
         '''
-        df_X = handler.add_time_feats(df)
+        df_X = self.handler.add_time_feats(df)
         
         '''
         initialize utils object
         '''
-        utils = Utils(inp_cols=handler.features_col, 
-                      date_col=handler.date_col, 
+        utils = Utils(inp_cols=self.handler.features_col, 
+                      date_col=self.handler.date_col, 
                       args=self.args,
                       stride=1)
-
+        return utils
         '''
         create train and val set
         '''

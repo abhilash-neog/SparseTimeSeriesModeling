@@ -16,7 +16,7 @@ import timefeatures
 
 from trainer import Trainer
 from model import MaskedAutoencoder
-from utils import Utils
+from utils.util import Utils
 from tools import transfer_weights
 from functools import partial
 from data_handler import DataHandler
@@ -37,6 +37,7 @@ parser = argparse.ArgumentParser(description='benchmarktesting')
 
 # basic config
 parser.add_argument('--task_name', type=str, required=True, default='pretrain', choices=['pretrain', 'finetune'], help='task name, options:[pretrain, finetune]')
+parser.add_argument('--seed', type=int, default=2023)
 
 # data loader
 parser.add_argument('--dataset', type=str, required=True, default='ETT', help='dataset type')
@@ -57,6 +58,7 @@ parser.add_argument('--load_pretrain', type=str, default='True', help='If False 
 
 # pretraining task
 parser.add_argument('--seq_len', type=int, default=336, help='window for pretraining and fine-tuning')
+parser.add_argument('--label_len', type=int, default=48, help='window for pretraining and fine-tuning')
 parser.add_argument('--mask_ratio', type=float, default=0.5, help='mask ratio')
 parser.add_argument('--num_samples', type=int, default=10, help='number of sample regions to plot for each feature during pretraining')
 parser.add_argument('--num_windows', type=int, default=25, help='number of windows to generate merged plots')
@@ -107,6 +109,11 @@ parser.add_argument('--save_code', type=str, default='True', help='whether to lo
 
 args = parser.parse_args()
 
+fix_seed = args.seed
+random.seed(fix_seed)
+torch.manual_seed(fix_seed)
+np.random.seed(fix_seed)
+
 '''
 update run name
 '''
@@ -123,12 +130,16 @@ args.device = 'cuda:' + args.device if torch.cuda.is_available() else 'cpu'
 '''
 read and process data
 '''
+# dh = DataHandler(args)
+# train_X, val_X, test_X, utils = dh.handle()
+
 dh = DataHandler(args)
-train_X, val_X, test_X, utils = dh.handle()
+# train_X, val_X, test_X, 
+utils = dh.handle()
 
 if args.task_name=='pretrain':
     
-    model = MaskedAutoencoder(utils, args, num_feats=train_X.shape[-1])
+    model = MaskedAutoencoder(utils, args, num_feats=len(dh.handler.features_col))
     # print(model)
     # print(sum(p.numel() for p in model.parameters() if p.requires_grad))
     # total_params = 0
@@ -148,7 +159,7 @@ if args.task_name=='pretrain':
     if not os.path.exists(args.pretrain_checkpoints_dir):
         os.makedirs(args.pretrain_checkpoints_dir)
     
-    history, model = trainer.pretrain(train_X, val_X, test_X)
+    history, model = trainer.pretrain()#train_X, val_X, test_X)
     
     model_path = os.path.join(args.pretrain_checkpoints_dir, args.ckpt_name)
     
@@ -163,7 +174,7 @@ elif args.task_name=='finetune':
     
     load_model_path = os.path.join(args.pretrain_checkpoints_dir, args.pretrain_run_name, args.pretrain_ckpt_name)
     
-    model = MaskedAutoencoder(utils, args, num_feats=train_X.shape[-1])
+    model = MaskedAutoencoder(utils, args, num_feats=len(dh.handler.features_col))
     
     '''
     Training phase
@@ -173,7 +184,7 @@ elif args.task_name=='finetune':
     
     trainer = Trainer(args=vars(args), model=model, utils=utils)
     
-    history, model = trainer.finetune(train_X, val_X, test_X)
+    history, model = trainer.finetune()#train_X, val_X, test_X)
     
     save_model_path = os.path.join(args.finetune_checkpoints_dir, args.ckpt_name)
     torch.save(model, save_model_path) # saves the final model; may not be the best model
@@ -181,7 +192,7 @@ elif args.task_name=='finetune':
     '''
     Testing phase
     '''
-    _, _, test_X_, _ = dh.handle(gt=True)
+    # _, _, test_X_, _ = dh.handle(gt=True)
     
     best_model_path = os.path.join(args.finetune_checkpoints_dir, 'checkpoint.pth')
     
@@ -189,6 +200,6 @@ elif args.task_name=='finetune':
     
     ft_model = torch.load(best_model_path, map_location='cpu').to(args.device)
     
-    trainer.test(ft_model, test_X_)
+    trainer.test(ft_model, flag='test')
     
 print(f"Done with model {args.task_name} ")

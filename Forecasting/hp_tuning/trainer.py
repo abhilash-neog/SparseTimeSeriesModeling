@@ -227,7 +227,6 @@ class Trainer():
             
             loss.backward()
             optimizer.step()
-            scheduler.step()
             # loss_scaler(loss, optimizer, parameters=self.model.parameters(), update_grad=(iteration + 1) % self.accum_iter == 0)
 
             # we use a per iteration (instead of per epoch) lr scheduler
@@ -236,7 +235,8 @@ class Trainer():
 
             del samples
             del masks
-        
+            
+        scheduler.step()
         batch_loss /= len(dataloader)
 
         if masked_loss is not None:

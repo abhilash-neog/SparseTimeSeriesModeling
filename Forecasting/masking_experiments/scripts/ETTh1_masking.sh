@@ -9,9 +9,9 @@ TRIAL=$3
 MASKINGTYPE=$4
 PRED_LEN_LIST=$5
 
-SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_etth1"
+SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_etth1.csv"
 
-GT_SOURCE_FILE="ETTh1"
+GT_SOURCE_FILE="ETTh1.csv"
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
 OUTPUT_PATH="./outputs/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
@@ -35,15 +35,16 @@ for id in $ROOT_PATHS; do
         --batch_size 16 \
         --encoder_depth 1 \
         --encoder_num_heads 8 \
-        --encoder_embed_dim 16 \
+        --encoder_embed_dim 32 \
         --decoder_depth 1 \
         --decoder_num_heads 8 \
-        --decoder_embed_dim 16 \
+        --decoder_embed_dim 32 \
         --project_name ett_masking \
-        --trial $TRIAL
+        --trial $TRIAL \
+        --dropout 0.05
 
     # FINETUNE WITH NON-FROZEN ENCODER
-    for pred_len in 96 192 336 720; do
+    for pred_len in ${PRED_LEN_ARRAY[@]}; do
         python -u executor.py \
             --task_name finetune \
             --device $DEVICE \
@@ -60,9 +61,10 @@ for id in $ROOT_PATHS; do
             --pretrain_ckpt_name ckpt_best.pth \
             --encoder_depth 1 \
             --encoder_num_heads 8 \
-            --encoder_embed_dim 16 \
+            --encoder_embed_dim 32 \
             --lr 0.0001 \
-            --dropout 0.2 \
+            --dropout 0.05 \
+            --fc_dropout 0.0 \
             --batch_size 16 \
             --project_name ett_masking \
             --output_path $OUTPUT_PATH \

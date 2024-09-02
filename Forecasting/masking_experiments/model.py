@@ -16,7 +16,7 @@ from functools import partial
 from torch.optim import lr_scheduler
 from timm.models.vision_transformer import Block
 from positional_encodings.torch_encodings import PositionalEncoding1D, PositionalEncoding2D
-from utils import MaskEmbed, MAEDataset, NativeScaler, get_1d_sincos_pos_embed, ActiveEmbed, FeatEmbed, adjust_learning_rate
+from utils.util import MaskEmbed, MAEDataset, NativeScaler, get_1d_sincos_pos_embed, ActiveEmbed, FeatEmbed, adjust_learning_rate
 
 class DecoderWithLinearHead(nn.Module):
     
@@ -464,5 +464,5 @@ class MaskedAutoencoder(nn.Module):
             latent, means, std = self.forward_encoder(data, miss_idx)
             latent = latent[:, 1:, :]
             # pred = self.dfh(latent, means, std)
-            pred = self.fh(latent, means, std)
+            pred = self.fh(latent, means, std)[:, -self.pred_len:, :]
             return pred
