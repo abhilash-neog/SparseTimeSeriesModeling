@@ -43,7 +43,7 @@ class Exp_SimMTM(Exp_Basic):
         return model
 
     def _get_data(self, flag, gt=None):
-        data_set, data_loader = data_provider(self.args, flag, gt=None)
+        data_set, data_loader = data_provider(self.args, flag, gt=gt)
         return data_set, data_loader
 
     def _select_optimizer(self):
