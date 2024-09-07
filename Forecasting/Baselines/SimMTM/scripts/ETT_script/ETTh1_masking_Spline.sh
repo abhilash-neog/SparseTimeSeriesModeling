@@ -20,8 +20,6 @@ MASKINGTYPE=$4
 
 DATA_PATH="v${TRIAL}_${MASKINGTYPE}_etth1_imputed.csv"
 
-OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/Spline/outputs/ETTh1/${MASKINGTYPE}/"
-
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
 PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/pretrain_checkpoints/"
