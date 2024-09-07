@@ -171,11 +171,11 @@ elif args.task_name == 'finetune':
         exp.train(setting)
 
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-        exp.test()
         torch.cuda.empty_cache()
 
         if args.gt_root_path == '':
-            exp.test()#, test=1)
+            print("Calling test()")
+            exp.test()
         else:
-            # print(f"calling test masked")
+            print(f"calling test masked")
             exp.test_masked()

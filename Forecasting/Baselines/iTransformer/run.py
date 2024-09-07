@@ -136,14 +136,12 @@ if __name__ == '__main__':
             exp.train(setting)
 
             print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-            # exp.test(setting)
 
-            # exp.test(setting)
             if args.gt_root_path == '':
-                exp.test(setting)#, test=1)
+                exp.test(setting)
             else:
                 print(f"calling test masked")
-                exp.test_masked(setting)#, test=1)
+                exp.test_masked(setting)
                 
             if args.do_predict:
                 print('>>>>>>>predicting : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))

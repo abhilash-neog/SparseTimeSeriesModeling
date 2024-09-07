@@ -2,7 +2,7 @@
 #SBATCH -J ecltesting
 #SBATCH --account=ml4science
 #SBATCH --partition=dgx_normal_q #dgx_normal_q #a100_normal_q
-#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=16
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=8
 #SBATCH --time=20:00:00 # 24 hours
 #SBATCH --gres=gpu:1
 
@@ -19,8 +19,6 @@ TRIAL=$3
 MASKINGTYPE=$4
 
 DATA_PATH="v${TRIAL}_${MASKINGTYPE}_etth1_imputed_SAITS.csv"
-
-OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/SAITS/outputs/ETTh1/${MASKINGTYPE}/"
 
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 

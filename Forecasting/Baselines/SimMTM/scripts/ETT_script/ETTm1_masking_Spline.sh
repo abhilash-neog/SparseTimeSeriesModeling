@@ -20,12 +20,12 @@ MASKINGTYPE=$4
 
 DATA_PATH="v${TRIAL}_${MASKINGTYPE}_ettm1_imputed.csv"
 
-OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/Spline/outputs/ETTm1/${MASKINGTYPE}/"
-
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
 PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/pretrain_checkpoints/"
 FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/finetune_checkpoints/"
+
+OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/outputs/Spline/${MASKINGTYPE}/ETTm1_v${TRIAL}/"
 
 for id in $ROOT_PATHS; do
 
