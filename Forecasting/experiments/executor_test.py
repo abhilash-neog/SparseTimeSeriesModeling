@@ -14,8 +14,8 @@ import math
 import datetime
 import timefeatures
 
-from trainer import Trainer
-from model import MaskedAutoencoder
+from trainer_test import Trainer
+from model_ds_attention import MaskedAutoencoder
 from utils.util import Utils
 from tools import transfer_weights
 from functools import partial
@@ -78,6 +78,7 @@ parser.add_argument('--decoder_depth', type=int, default=2, help='number of deco
 parser.add_argument('--decoder_num_heads', type=int, default=4, help='number of decoder multi-attention heads')
 parser.add_argument('--decoder_embed_dim', type=int, default=32, help='decoder embedding dimension in the feature space')
 parser.add_argument('--mlp_ratio', type=int, default=4, help='mlp ratio for vision transformer')
+parser.add_argument('--norm', type=int, default=0)
 
 # training 
 parser.add_argument('--batch_size', type=int, default=32)

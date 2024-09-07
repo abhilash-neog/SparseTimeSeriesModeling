@@ -6,10 +6,10 @@ FINETUNE_EPOCHS=10
 
 DEVICE=$1
 
-OUTPUT_PATH="./outputs/ETTh1_128/"
+OUTPUT_PATH="./outputs/ETTh1_64/"
 ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
-pretrain_checkpoints="./pretrain_checkpoints_h1_128/"
-finetune_checkpoints="./finetune_checkpoints_h1_128/"
+pretrain_checkpoints="./pretrain_checkpoints_h1_64/"
+finetune_checkpoints="./finetune_checkpoints_h1_64/"
 
 # PRETRAIN
 python -u executor.py \
@@ -23,12 +23,12 @@ python -u executor.py \
     --mask_ratio 0.50 \
     --lr 0.001 \
     --batch_size 16 \
-    --encoder_depth 4 \
+    --encoder_depth 2 \
     --encoder_num_heads 8 \
-    --encoder_embed_dim 128 \
-    --decoder_depth 2 \
+    --encoder_embed_dim 64 \
+    --decoder_depth 1 \
     --decoder_num_heads 8 \
-    --decoder_embed_dim 128 \
+    --decoder_embed_dim 64 \
     --project_name ett \
     --dropout 0.05 \
     --pretrain_checkpoints $pretrain_checkpoints \
@@ -48,9 +48,9 @@ for pred_len in 96 192 336 720; do
         --pred_len $pred_len \
         --source_filename $SOURCE_FILE \
         --pretrain_ckpt_name ckpt_best.pth \
-        --encoder_depth 4 \
+        --encoder_depth 2 \
         --encoder_num_heads 8 \
-        --encoder_embed_dim 128 \
+        --encoder_embed_dim 64 \
         --lr 0.0001 \
         --dropout 0.05 \
         --fc_dropout 0.0 \

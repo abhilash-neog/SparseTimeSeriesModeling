@@ -88,11 +88,17 @@ class Dataset_ETT_hour(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
+        seq_x = torch.tensor(seq_x)
+        seq_y = torch.tensor(seq_y)
+        
         maskX = 1 - (1 * (torch.isnan(seq_x)))
-        maskX = maskX.float()
+        maskX = maskX.float()#.to(self.device)
         
         maskY = 1 - (1 * (torch.isnan(seq_y)))
         maskY = maskY.float()
+        
+        seq_x = torch.nan_to_num(seq_x).float()
+        seq_y = torch.nan_to_num(seq_y).float()
         
         return seq_x, seq_y, maskX, maskY #seq_x_mark, seq_y_mark
 
@@ -295,11 +301,17 @@ class Dataset_Custom(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
+        seq_x = torch.tensor(seq_x)
+        seq_y = torch.tensor(seq_y)
+        
         maskX = 1 - (1 * (torch.isnan(seq_x)))
-        maskX = maskX.float()
+        maskX = maskX.float()#.to(self.device)
         
         maskY = 1 - (1 * (torch.isnan(seq_y)))
         maskY = maskY.float()
+        
+        seq_x = torch.nan_to_num(seq_x).float()
+        seq_y = torch.nan_to_num(seq_y).float()
         
         return seq_x, seq_y, maskX, maskY #seq_x_mark, seq_y_mark
 

@@ -57,7 +57,7 @@ class ModelPlugins():
         # self.pos_embed = nn.Parameter(torch.zeros(1, self.window_len + 1, self.enc_embed_dim), requires_grad=False).to(self.device)
         self.pos_embed = PositionalEncoding2D(enc_embed_dim).to(self.device)
         
-        self.decoder_pos_embed = nn.Parameter(torch.zeros(1, self.window_len, self.dec_embed_dim), requires_grad=False).to(self.device)
+        self.decoder_pos_embed = nn.Parameter(torch.zeros(1, self.window_len+1, self.dec_embed_dim), requires_grad=False).to(self.device)
         # self.decoder_pos_embed = PositionalEncoding2D(dec_embed_dim).to(self.device)
         
         if n2one==True:
@@ -69,13 +69,13 @@ class ModelPlugins():
     
     def initialize_embeddings(self):
         
-        enc_z = torch.rand((1, self.window_len, self.num_feats, self.enc_embed_dim)).to(self.device) # +1 for the cls token
+        enc_z = torch.rand((1, self.window_len+1, self.num_feats, self.enc_embed_dim)).to(self.device) # +1 for the cls token
         self.pos_embed = self.pos_embed(enc_z)
         
 #         pos_embed = get_1d_sincos_pos_embed(self.pos_embed.shape[-1], self.window_len, cls_token=True)
 #         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
-        decoder_pos_embed = get_1d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], self.window_len, cls_token=False)
+        decoder_pos_embed = get_1d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], self.window_len, cls_token=True)
         self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
 
 class Trainer():
@@ -858,9 +858,9 @@ class Trainer():
         return {'avg_loss':batch_loss, 'mse_dict':MSE_dict, 'mae_dict':MAE_dict, 'preds':predictions, 'gt': val_X, 'og_masks':og_masks}
         
         
-    def test(self, model):
+    def test(self, model, flag='test'):
 
-        test_data, test_dataloader = self._get_data(flag='test')
+        test_data, test_dataloader = self._get_data(flag=flag)
         
         with torch.no_grad():
             # val_eval_dict = self.evaluate_forecast(model=model, dataloader=self.val_dataloader, args=self.args, train_or_val='val')
@@ -883,6 +883,111 @@ class Trainer():
         f.write('{0}->{1}, {2:.3f}, {3:.3f} \n'.format(self.seq_len, self.pred_len, mse, mae))
         f.close()
 
+    def test_masked(self, model, flag='test'):
+        
+        # gt_test_dataloader = self.get_data(test_X_, split_flag='test')
+        test_data, test_dataloader = self._get_data(flag=flag)
+        gt_test_data, gt_test_dataloader = self._get_data(flag=flag, gt=True)
+        
+        self.device = self.args['device']
+        
+        folder_path = self.args['output_path']
+        print(folder_path)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+            
+        samples_list = []
+        preds_list = []
+        batch_loss = 0
+        og_masks_list = []
+
+        model.eval()
+        with torch.no_grad():
+            for it, (sample_X, sample_Y, mask_X, mask_Y) in tqdm(enumerate(test_dataloader)):
+            
+                sample_X = sample_X.to(self.device)
+                mask_X = mask_X.to(self.device)
+
+                with torch.cuda.amp.autocast():
+                    pred = model(sample_X, mask_X, self.mpl)
+                    
+                    if self.n2one_ft==True:
+                        sample_Y = sample_Y[:, :, self.utils.target_index].unsqueeze(2)
+                
+                pred = pred[:, -self.args['pred_len']:, :]
+                sample_Y = sample_Y[:, -self.args['pred_len']:, :].to(self.device)
+                mask_Y = mask_Y[:, -self.args['pred_len']:, :].to(self.device)
+                
+                preds_list.append(pred.detach())
+
+                del sample_X, sample_Y
+                del mask_X, mask_Y
+            
+        for it, (sample_X, sample_Y, mask_X, mask_Y) in tqdm(enumerate(gt_test_dataloader)):
+            
+            sample_X = sample_X.to(self.device)
+            mask_X = mask_X.to(self.device)
+
+            if self.n2one_ft==True:
+                sample_Y = sample_Y[:, :, self.utils.target_index].unsqueeze(2)
+            
+            sample_Y = sample_Y[:, -self.args['pred_len']:, :].to(self.device)
+            mask_Y = mask_Y[:, -self.args['pred_len']:, :].to(self.device)
+            
+            samples_list.append(sample_Y.detach())
+            og_masks_list.append(mask_Y.detach())
+            
+            del sample_X, sample_Y
+            del mask_X, mask_Y
+        
+        val_X = torch.cat(samples_list, dim=0)
+        predictions = torch.cat(preds_list, dim=0)
+        og_masks = torch.cat(og_masks_list, dim=0)
+        
+        twodmasks = og_masks
+        
+        MSE_dict = {}
+        MAE_dict = {}
+        
+        with torch.cuda.amp.autocast():
+            
+            if self.feature_wise_mse=='True':
+                '''
+                MSE
+                '''                
+                sqred_err = (predictions-val_X)**2
+                sum_sqred_err = (sqred_err*twodmasks).sum((0,1)) # sum across batches and windows for each feature
+                feature_wise_mse = (sum_sqred_err/twodmasks.sum((0,1)))
+                MSE_dict = {"test_"+self.utils.inp_cols[idx]:feature_wise_mse[idx].item() for idx in range(self.model.num_feats)}
+
+                '''
+                MAE
+                '''
+                abs_err = torch.abs(predictions - val_X)
+                masked_abs_err = abs_err*twodmasks
+
+                feature_wise_mae = masked_abs_err.sum((0, 1))/twodmasks.sum((0, 1))
+                MAE_dict = {"test_"+self.utils.inp_cols[idx]:feature_wise_mae[idx].item() for idx in range(self.model.num_feats)}
+            
+            MSE = ((((predictions-val_X)**2)*twodmasks).sum())/twodmasks.sum()
+            MSE_dict["MSE"] = MSE.item()
+
+            MAE = ((torch.abs(predictions-val_X)*twodmasks).sum())/twodmasks.sum()
+            MAE_dict["MAE"] = MAE.item()
+        
+#         self.wandb_summarize(MSE_dict, train_or_test='test')
+#         self.wandb_summarize(MAE_dict, train_or_test='test')
+
+#         wandb.finish()
+        
+        mse = MSE_dict['MSE']
+        mae = MAE_dict['MAE']
+        
+        print('{0}->{1}, mse:{2:.3f}, mae:{3:.3f}'.format(self.seq_len, self.pred_len, mse, mae))
+        f = open(folder_path+"score_"+flag+"_"+self.args['root_path'].split('/')[-1]+".txt", 'a')
+        f.write('{0}->{1}, {2:.3f}, {3:.3f} \n'.format(self.seq_len, self.pred_len, mse, mae))
+        f.close()
+        
 def mae_base(**kwargs):
     model = MaskedAutoencoder(
         embed_dim=64, depth=8, num_heads=4,

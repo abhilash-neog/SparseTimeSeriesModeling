@@ -35,14 +35,14 @@ def data_provider(args, flag, gt=None):
 
     if gt is not None:
         root_path=args['gt_root_path']
-        data_path=args['gt_data_path']
+        data_path=args['gt_source_filename']
     else:
         root_path=args['root_path']
         data_path=args['source_filename']
     
     data_set = Data(
-        root_path=args['root_path'],
-        data_path=args['source_filename'],
+        root_path=root_path,
+        data_path=data_path,
         flag=flag,
         size=[args['seq_len'], args['label_len'], args['pred_len']],
         timeenc=1,
