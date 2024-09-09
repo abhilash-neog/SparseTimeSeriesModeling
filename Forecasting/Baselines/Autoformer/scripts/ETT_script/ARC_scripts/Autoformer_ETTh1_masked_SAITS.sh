@@ -3,12 +3,12 @@
 #SBATCH --account=ml4science
 #SBATCH --partition=dgx_normal_q #dgx_normal_q #a100_normal_q
 #SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=8
-#SBATCH --time=9:00:00 # 24 hours
+#SBATCH --time=14:00:00 # 24 hours
 #SBATCH --gres=gpu:1
 
 module reset
 module load Anaconda3/2020.11
-source activate ptst
+source activate env
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.conda/envs/env/lib
 
@@ -17,40 +17,43 @@ DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 
-CHECKPOINT="/projects/ml4science/time_series/DLinear/SAITS/checkpoints/"
+CHECKPOINT="/projects/ml4science/time_series/Autoformer/SAITS/checkpoints/"
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
-root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTm2/"
-data_path_name="v${TRIAL}_${MASKINGTYPE}_ettm2_imputed_SAITS.csv"
+root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTh1/"
+data_path_name="v${TRIAL}_${MASKINGTYPE}_etth1_imputed_SAITS.csv"
 
-OUTPUT_PATH="/projects/ml4science/time_series/DLinear/outputs/SAITS/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/Autoformer/outputs/SAITS/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
 
 seq_len=336
+
+model_name=Autoformer
 
 for id in $ROOT_PATHS; do
     root_path="${root_path_name}${id}"
     for pred_len in 96 192 336 720; do
-        python -u run_longExp.py \
+        python -u run.py \
           --is_training 1 \
           --root_path $root_path \
           --data_path $data_path_name \
           --gt_root_path $GT_ROOT_PATH \
-          --gt_data_path ETTm2.csv \
-          --model_id "ETTm2_${seq_len}_${pred_len}" \
-          --model DLinear \
-          --data ETTm2 \
+          --gt_data_path ETTh1.csv \
+          --model_id "ETTh1_336_${pred_len}" \
+          --model Autoformer \
+          --data ETTh1 \
           --features M \
           --seq_len $seq_len \
+          --label_len 168 \
           --pred_len $pred_len \
+          --e_layers 2 \
+          --d_layers 1 \
+          --factor 3 \
           --enc_in 7 \
+          --dec_in 7 \
+          --c_out 7 \
           --des 'Exp' \
           --itr 1 \
           --gpu $DEVICES \
-          --batch_size 32 \
-          --trial $TRIAL \
-          --train_epochs 1\
-          --checkpoints $CHECKPOINT \
-          --learning_rate 0.05 \
           --checkpoints $CHECKPOINT \
           --output_path $OUTPUT_PATH
     done
