@@ -21,13 +21,16 @@ DECODER_HEADS=${10}
 DROPOUT=${11}
 FC_DROPOUT=${12}
 
+kdim=${13}
+vdim=${14}
+
 SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_etth1.csv"
 GT_SOURCE_FILE="ETTh1.csv"
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
-OUTPUT_PATH="./outputs/${MASKINGTYPE}/ETTh1_dsattn_v${TRIAL}_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
-PRETRAIN_CKPT_DIR="./pretrain_checkpoints_ETTh1_dsattn/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
-FINETUNE_CKPT_DIR="./finetune_checkpoints_ETTh1_dsattn/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
+OUTPUT_PATH="./outputs_OG/${MASKINGTYPE}/ETTh1_v${TRIAL}_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}_kdim_${kdim}_vdim_${vdim}/"
+PRETRAIN_CKPT_DIR="/raid/abhilash/RUNS_OG_arch/pretrain_checkpoints_ETTh1/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}_kdim_${kdim}_vdim_${vdim}/"
+FINETUNE_CKPT_DIR="/raid/abhilash/RUNS_OG_arch/finetune_checkpoints_ETTh1/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}_kdim_${kdim}_vdim_${vdim}/"
 
 ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
@@ -35,7 +38,7 @@ for id in $ROOT_PATHS; do
     
     root_path="${BASE_PATH}${id}"
     # PRETRAIN
-    python -u executor_test.py \
+    python -u executor.py \
         --task_name pretrain \
         --device $DEVICE \
         --root_path $root_path \
@@ -58,7 +61,7 @@ for id in $ROOT_PATHS; do
 
     # FINETUNE WITH NON-FROZEN ENCODER
     for pred_len in 96 192 336 720; do
-        python -u executor_test.py \
+        python -u executor.py \
             --task_name finetune \
             --device $DEVICE \
             --root_path $root_path \
@@ -75,6 +78,8 @@ for id in $ROOT_PATHS; do
             --encoder_depth $ENCODER_DEPTH \
             --encoder_num_heads $ENCODER_HEADS \
             --encoder_embed_dim $ENCODER_DIM \
+            --kdim $kdim \
+            --vdim $vdim \
             --lr 0.0001 \
             --fc_dropout $FC_DROPOUT \
             --batch_size 16 \

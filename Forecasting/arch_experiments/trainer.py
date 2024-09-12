@@ -45,7 +45,8 @@ class ModelPlugins():
                  num_feats,
                  n2one,
                  batch_size,
-                 device):
+                 device,
+                 pred_len=None):
         
         self.enc_embed_dim = enc_embed_dim
         self.dec_embed_dim = dec_embed_dim
@@ -53,29 +54,30 @@ class ModelPlugins():
         self.device = device
         self.batch_size = batch_size
         self.num_feats = num_feats
+        self.pred_len = pred_len
         
         # self.pos_embed = nn.Parameter(torch.zeros(1, self.window_len + 1, self.enc_embed_dim), requires_grad=False).to(self.device)
         self.pos_embed = PositionalEncoding2D(enc_embed_dim).to(self.device)
         
-        self.decoder_pos_embed = nn.Parameter(torch.zeros(1, self.window_len + 1, self.dec_embed_dim), requires_grad=False).to(self.device)
+        self.decoder_pos_embed = nn.Parameter(torch.zeros(1, self.num_feats+1, self.dec_embed_dim), requires_grad=False).to(self.device)
         # self.decoder_pos_embed = PositionalEncoding2D(dec_embed_dim).to(self.device)
         
-        if n2one==True:
-            self.decoder_pred = nn.Linear(self.dec_embed_dim, 1, bias=True).to(self.device)  # decoder to patch
-        else:
-            self.decoder_pred = nn.Linear(self.dec_embed_dim, num_feats, bias=True).to(self.device)  # decoder to patch
+        # if n2one==True:
+        #     self.decoder_pred = nn.Linear(self.dec_embed_dim, 1, bias=True).to(self.device)  # decoder to patch
+        # else:
+        self.decoder_pred = nn.Linear(self.dec_embed_dim, self.window_len, bias=True).to(self.device)  # decoder to patch
         
         self.initialize_embeddings()
     
     def initialize_embeddings(self):
         
-        enc_z = torch.rand((1, self.window_len + 1, self.num_feats, self.enc_embed_dim)).to(self.device) # +1 for the cls token
+        enc_z = torch.rand((1, self.num_feats+1, self.window_len, self.enc_embed_dim)).to(self.device) # +1 for the cls token
         self.pos_embed = self.pos_embed(enc_z)
         
 #         pos_embed = get_1d_sincos_pos_embed(self.pos_embed.shape[-1], self.window_len, cls_token=True)
 #         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
-        decoder_pos_embed = get_1d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], self.window_len, cls_token=True)
+        decoder_pos_embed = get_1d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], self.num_feats, cls_token=True)
         self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
 
 class Trainer():
@@ -103,7 +105,7 @@ class Trainer():
         self.window_len = self.seq_len
         self.finetune_checkpoints_dir = args['finetune_checkpoints_dir']
         self.mpl = ModelPlugins(window_len=self.window_len, 
-                                enc_embed_dim=self.model.embed_dim, 
+                                enc_embed_dim=self.model.kdim, 
                                 dec_embed_dim=self.model.decoder_embed_dim,
                                 num_feats=self.model.num_feats, 
                                 task_name=self.task_name, 
@@ -125,39 +127,14 @@ class Trainer():
     def select_optimizer_(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)#, betas=(0.9, 0.95), weight_decay=self.weight_decay)
         return optimizer
-        
-    def select_scaler_(self):
-        loss_scaler = NativeScaler()
-        return loss_scaler
     
     def _get_data(self, flag, gt=None):
         data_set, data_loader = data_provider(self.args, flag, gt)
         return data_set, data_loader
     
-#     def get_data(self, X, split_flag):
-        
-#         M = 1 - (1 * (torch.isnan(X)))
-#         M = M.float()
-        
-#         X = torch.nan_to_num(X)
-        
-#         '''
-#         Dataloader
-#         '''
-#         if split_flag=='test':
-#             dataset = MAEDataset(X, M)
-#             dataloader = DataLoader(
-#                 dataset,
-#                 shuffle=False,
-#                 batch_size=self.batch_size
-#             )
-#         else:
-#             dataset = MAEDataset(X, M)
-#             dataloader = DataLoader(
-#                 dataset, sampler=RandomSampler(dataset),
-#                 batch_size=self.batch_size,
-#             )
-#         return dataloader
+    def select_scaler_(self):
+        loss_scaler = NativeScaler()
+        return loss_scaler
     
     def val_one_epoch(self, dataloader, split, masked_penalize):
         
@@ -193,7 +170,7 @@ class Trainer():
             batch_loss += loss_value
 
             if not math.isfinite(loss_value):
-                print("Loss is {}, stopping training".format(loss_value))
+                print("Validation::Loss is {}, stopping training".format(loss_value))
                 sys.exit(1)
 
             del samples
@@ -222,15 +199,15 @@ class Trainer():
             with torch.cuda.amp.autocast():
 
                 pred, mask, nask = self.model(samples, masks, self.mpl) # we get de-normalized predictions
-                
+
                 if self.n2one_ft==True:
                     samples = samples[:, :, self.utils.target_index].unsqueeze(2)
-
+                
                 loss, masked_loss, unmasked_loss = self.model.forward_loss(data=samples, 
                                                                            pred=pred, 
-                                                                           miss_idx=masks,
                                                                            mask=mask, 
-                                                                           nask=nask,
+                                                                           nask=nask, 
+                                                                           miss_idx=masks, 
                                                                            masked_penalize=masked_penalize)
                 
                 if masked_loss is not None:
@@ -244,14 +221,15 @@ class Trainer():
             batch_loss += loss_value
 
             if not math.isfinite(loss_value):
-                print("Loss is {}, stopping training".format(loss_value))
+                print("Training::Loss is {}, stopping training".format(loss_value))
                 sys.exit(1)
 
             loss /= self.accum_iter
             
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             optimizer.step()
-            
+            scheduler.step()
             # loss_scaler(loss, optimizer, parameters=self.model.parameters(), update_grad=(iteration + 1) % self.accum_iter == 0)
 
             # we use a per iteration (instead of per epoch) lr scheduler
@@ -261,8 +239,6 @@ class Trainer():
             del samples
             del masks
         
-        scheduler.step()
-            
         batch_loss /= len(dataloader)
 
         if masked_loss is not None:
@@ -274,12 +250,197 @@ class Trainer():
         
     def pretrain(self, Xtrain=None, Xval=None, Xtest=None, masked_penalize=False):
         
-        # data preparation
         train_dataset, self.train_dataloader = self._get_data(flag='train')
         val_dataset, self.val_dataloader = self._get_data(flag='val')
         
         num_windows = self.args["num_windows"]
         num_samples = self.args["num_samples"]
+        
+        config = init_wandb(self.args, self.task_name)
+        
+#         # Set missing Train
+#         M = 1 - (1 * (torch.isnan(Xtrain)))
+#         M = M.float()#.to(self.device)
+        
+#         Xtrain = torch.nan_to_num(Xtrain)
+#         # Xtrain = Xtrain.to(self.device)
+        
+#         # Set missing Val
+#         M_val = 1 - (1 * (torch.isnan(Xval)))
+#         M_val = M_val.float()#.to(self.device)
+        
+#         Xval = torch.nan_to_num(Xval)
+#         # Xval = Xval.to(self.device)
+        
+#         # Set missing Test
+#         M_test = 1 - (1 * (torch.isnan(Xtest)))
+#         M_test = M_test.float()#.to(self.device)
+        
+#         Xtest = torch.nan_to_num(Xtest)
+#         # Xtest = Xtest.to(self.device)
+        
+        self.model.to(self.device)
+        
+        n_batches = int(math.ceil(len(train_dataset) / self.batch_size))
+        
+        eff_batch_size = self.batch_size * self.accum_iter
+        
+        if self.lr is None:  # only base_lr is specified
+            self.lr = self.blr * eff_batch_size / 64
+
+#         '''
+#         Train dataloader
+#         '''
+#         train_dataset = MAEDataset(Xtrain, M)
+#         self.train_dataloader = DataLoader(
+#             train_dataset, sampler=RandomSampler(train_dataset),
+#             batch_size=self.batch_size,
+#         )
+        
+#         '''
+#         Val Dataloader
+#         '''
+#         val_dataset = MAEDataset(Xval, M_val)
+#         self.val_dataloader = DataLoader(
+#             val_dataset, sampler=RandomSampler(val_dataset),
+#             batch_size=self.batch_size,
+#         )
+        
+#         '''
+#         Test Dataloader
+#         '''
+#         test_dataset = MAEDataset(Xtest, M_test)
+#         self.test_dataloader = DataLoader(
+#             test_dataset, sampler=RandomSampler(test_dataset),
+#             batch_size=self.batch_size,
+#         )
+        
+        losses = np.full(self.max_epochs, np.nan)
+        val_mse = []
+        train_mse = []
+        
+        # if self.n2one_ft==True:
+        #     self.std = self.utils.feat_std[:, :, self.utils.target_index].unsqueeze(1).to(self.device)
+        #     self.mean = self.utils.feat_mean[:, :, self.utils.target_index].unsqueeze(1).to(self.device) 
+        # else:
+        #     self.std = self.utils.feat_std.to(self.device)
+        #     self.mean = self.utils.feat_mean.to(self.device)
+    
+        torch.autograd.set_detect_anomaly(True)
+        min_vali_loss=None
+        
+        optimizer = self.select_optimizer_()
+        model_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, 
+                                                                     T_max=self.max_epochs)
+        # loss_scaler = self.select_scaler_()
+        
+        with trange(self.max_epochs) as tr:
+            '''
+            Do we need gradient accumulation here? For maybe large models, or for fine-tuning a pre-trained model,
+            gradient accumulation maybe useful
+            '''
+            # torch.cuda.empty_cache()
+            
+            for it in tr:
+                
+                learning_rate = optimizer.param_groups[0]['lr']
+                print(f"learning rate in epoch {it} = {learning_rate} ")
+                
+                train_loss, masked_train_loss, unmasked_train_loss = self.train_one_epoch(dataloader=self.train_dataloader, 
+                                                                                          split='train', 
+                                                                                          masked_penalize=masked_penalize,
+                                                                                          optimizer=optimizer,
+                                                                                          scheduler=model_scheduler)
+                val_loss, masked_val_loss, unmasked_val_loss = self.val_one_epoch(dataloader=self.val_dataloader, 
+                                                                                  split='val', 
+                                                                                  masked_penalize=masked_penalize)
+                
+                losses[it] = train_loss
+                
+                # adjust_learning_rate(optimizer, 
+                #              epoch=it+1, 
+                #              lr=self.lr,
+                #              min_lr=self.min_lr, 
+                #              max_epochs=self.max_epochs, 
+                #              warmup_epochs=self.warmup_epochs)
+                
+
+                if self.model.mask_ratio<1 and masked_penalize==False:
+                    metrics = {
+                        "train_loss": train_loss,
+                        "train_masked_loss":masked_train_loss,
+                        "train_unmasked_loss":unmasked_train_loss,
+                        
+                        "val_loss": val_loss,
+                        "val_masked_loss":masked_val_loss,
+                        "val_unmasked_loss":unmasked_val_loss,
+                    }
+                else:
+                    metrics = {
+                        "train_loss":train_loss,
+                         "val_loss": val_loss,
+                       }
+                
+                tr.set_postfix(metrics)
+                
+                wandb.log(metrics)
+                
+                # checkpoint saving
+                if not min_vali_loss or val_loss <= min_vali_loss:
+                    if it == 0:
+                        min_vali_loss = val_loss
+
+                    print(
+                        "Validation loss decreased ({0:.4f} --> {1:.4f}).  Saving model epoch{2} ...".format(min_vali_loss, val_loss, it))
+
+                    min_vali_loss = val_loss
+                    # self.encoder_state_dict = OrderedDict()
+                    # for k, v in self.state_dict().items():
+                    #     if 'encoder' in k or 'enc_embedding' in k:
+                    #         if 'module.' in k:
+                    #             k = k.replace('module.', '')  # multi-gpu
+                    #         self.encoder_state_dict[k] = v
+                    model_ckpt = {'epoch': it, 'model_state_dict': self.model}
+                    path = os.path.join(self.args['pretrain_checkpoints_dir'], 'ckpt_best.pth')
+                    torch.save(self.model, path)
+
+                if (it + 1) % 10 == 0:
+                    print("Saving model at epoch {}...".format(it + 1))
+
+                    # self.encoder_state_dict = OrderedDict()
+                    # for k, v in self.model.state_dict().items():
+                    #     if 'encoder' in k or 'enc_embedding' in k:
+                    #         if 'module.' in k:
+                    #             k = k.replace('module.', '')
+                    #         self.encoder_state_dict[k] = v
+                    model_ckpt = {'epoch': it, 'model_state_dict': self.model}
+                    path = os.path.join(self.args['pretrain_checkpoints_dir'], f'ckpt{it + 1}.pth')
+                    torch.save(self.model, path)
+            
+            wandb.finish()
+            
+        return losses, self.model
+    
+    def finetune(self, Xtrain=None, Xval=None, Xtest=None, masked_penalize=False):
+        
+        train_dataset, self.train_dataloader = self._get_data(flag='train')
+        val_dataset, self.val_dataloader = self._get_data(flag='val')
+        test_dataset, self.test_dataloader = self._get_data(flag='test')
+        
+        num_windows = self.args["num_windows"]
+        num_samples = self.args["num_samples"]
+        
+        masked_penalize=True
+        print("Mask Penalize Has been set to True.")
+        # lookback = args['lookback_window']
+        lookback = self.seq_len
+        
+        self.model.set_lookbackwindow(lookback, self.pred_len)
+        
+        self.model.set_masking_mode(masking_mode="continuous_masking")
+        
+        if self.args['freeze_encoder']=='True':
+            self.freeze_encoder_model()
         
         config = init_wandb(self.args, self.task_name)
         
@@ -354,202 +515,6 @@ class Trainer():
         torch.autograd.set_detect_anomaly(True)
         min_vali_loss=None
         
-        optimizer = self.select_optimizer_()
-        model_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, 
-                                                                     T_max=self.max_epochs)
-        # loss_scaler = self.select_scaler_()
-        
-        # time_now = time.time()
-        
-        with trange(self.max_epochs) as tr:
-            '''
-            Do we need gradient accumulation here? For maybe large models, or for fine-tuning a pre-trained model,
-            gradient accumulation maybe useful
-            '''
-            # torch.cuda.empty_cache()
-            
-            for it in tr:
-                
-                epoch_time = time.time()
-                learning_rate = optimizer.param_groups[0]['lr']
-                print(f"learning rate in epoch {it} = {learning_rate} ")
-                
-                train_loss, masked_train_loss, unmasked_train_loss = self.train_one_epoch(dataloader=self.train_dataloader, 
-                                                                                          split='train', 
-                                                                                          masked_penalize=masked_penalize,
-                                                                                          optimizer=optimizer,
-                                                                                          scheduler=model_scheduler)
-                
-                print("Epoch: {} cost time: {}".format(it + 1, time.time() - epoch_time))
-                
-                val_loss, masked_val_loss, unmasked_val_loss = self.val_one_epoch(dataloader=self.val_dataloader, 
-                                                                                  split='val', 
-                                                                                  masked_penalize=masked_penalize)
-                
-                losses[it] = train_loss
-                
-                # adjust_learning_rate(optimizer, 
-                #              epoch=it+1, 
-                #              lr=self.lr,
-                #              min_lr=self.min_lr, 
-                #              max_epochs=self.max_epochs, 
-                #              warmup_epochs=self.warmup_epochs)
-                
-
-                if self.model.mask_ratio<1 and masked_penalize==False:
-                    metrics = {
-                        "train_loss": train_loss,
-                        "train_masked_loss":masked_train_loss,
-                        "train_unmasked_loss":unmasked_train_loss,
-                        
-                        "val_loss": val_loss,
-                        "val_masked_loss":masked_val_loss,
-                        "val_unmasked_loss":unmasked_val_loss,
-                    }
-                else:
-                    metrics = {
-                        "train_loss":train_loss,
-                         "val_loss": val_loss,
-                       }
-                
-                tr.set_postfix(metrics)
-                
-                wandb.log(metrics)
-                
-                # checkpoint saving
-                if not min_vali_loss or val_loss <= min_vali_loss:
-                    if it == 0:
-                        min_vali_loss = val_loss
-
-                    print(
-                        "Validation loss decreased ({0:.4f} --> {1:.4f}).  Saving model epoch{2} ...".format(min_vali_loss, val_loss, it))
-
-                    min_vali_loss = val_loss
-                    # self.encoder_state_dict = OrderedDict()
-                    # for k, v in self.state_dict().items():
-                    #     if 'encoder' in k or 'enc_embedding' in k:
-                    #         if 'module.' in k:
-                    #             k = k.replace('module.', '')  # multi-gpu
-                    #         self.encoder_state_dict[k] = v
-                    model_ckpt = {'epoch': it, 'model_state_dict': self.model}
-                    path = os.path.join(self.args['pretrain_checkpoints_dir'], 'ckpt_best.pth')
-                    torch.save(self.model, path)
-
-                if (it + 1) % 10 == 0:
-                    print("Saving model at epoch {}...".format(it + 1))
-
-                    # self.encoder_state_dict = OrderedDict()
-                    # for k, v in self.model.state_dict().items():
-                    #     if 'encoder' in k or 'enc_embedding' in k:
-                    #         if 'module.' in k:
-                    #             k = k.replace('module.', '')
-                    #         self.encoder_state_dict[k] = v
-                    model_ckpt = {'epoch': it, 'model_state_dict': self.model}
-                    path = os.path.join(self.args['pretrain_checkpoints_dir'], f'ckpt{it + 1}.pth')
-                    torch.save(self.model, path)
-            
-            wandb.finish()
-            
-        return losses, self.model
-    
-    def finetune(self, Xtrain=None, Xval=None, Xtest=None, masked_penalize=False):
-        
-        # data preparation
-        train_dataset, self.train_dataloader = self._get_data(flag='train')
-        val_dataset, self.val_dataloader = self._get_data(flag='val')
-        test_dataset, self.test_dataloader = self._get_data(flag='test')
-        
-        num_windows = self.args["num_windows"]
-        num_samples = self.args["num_samples"]
-        
-        masked_penalize=True
-        print("Mask Penalize Has been set to True.")
-        # lookback = args['lookback_window']
-        lookback = self.seq_len
-        
-        self.model.set_lookbackwindow(lookback, self.pred_len)
-        
-        self.model.set_masking_mode(masking_mode="continuous_masking")
-        
-        if self.args['freeze_encoder']=='True':
-            self.freeze_encoder_model()
-        
-        config = init_wandb(self.args, self.task_name)
-        
-#         # Set missing Train
-#         M = 1 - (1 * (torch.isnan(Xtrain)))
-#         M = M.float()#.to(self.device)
-        
-#         Xtrain = torch.nan_to_num(Xtrain)
-#         # Xtrain = Xtrain.to(self.device)
-        
-#         # Set missing Val
-#         M_val = 1 - (1 * (torch.isnan(Xval)))
-#         M_val = M_val.float()#.to(self.device)
-        
-#         Xval = torch.nan_to_num(Xval)
-#         # Xval = Xval.to(self.device)
-        
-#         # Set missing Test
-#         M_test = 1 - (1 * (torch.isnan(Xtest)))
-#         M_test = M_test.float()#.to(self.device)
-        
-#         Xtest = torch.nan_to_num(Xtest)
-#         # Xtest = Xtest.to(self.device)
-        
-        self.model.to(self.device)
-        
-        n_batches = int(math.ceil(len(train_dataset) / self.batch_size))
-        
-        eff_batch_size = self.batch_size * self.accum_iter
-        
-        if self.lr is None:  # only base_lr is specified
-            self.lr = self.blr * eff_batch_size / 64
-
-#         '''
-#         Train dataloader
-#         '''
-#         train_dataset = MAEDataset(Xtrain, M)
-#         self.train_dataloader = DataLoader(
-#             train_dataset, sampler=RandomSampler(train_dataset),
-#             batch_size=self.batch_size,
-#         )
-        
-#         '''
-#         Val Dataloader
-#         '''
-#         val_dataset = MAEDataset(Xval, M_val)
-#         self.val_dataloader = DataLoader(
-#             val_dataset, sampler=RandomSampler(val_dataset),
-#             batch_size=self.batch_size,
-#         )
-        
-#         '''
-#         Test Dataloader
-#         '''
-#         test_dataset = MAEDataset(Xtest, M_test)
-#         self.test_dataloader = DataLoader(
-#             test_dataset, sampler=RandomSampler(test_dataset),
-#             batch_size=self.batch_size,
-#         )
-        # self.train_dataloader = self.get_data(Xtrain, split_flag='train')
-        # self.val_dataloader = self.get_data(Xval, split_flag='val')
-        # self.test_dataloader = self.get_data(Xtest, split_flag='test')
-        
-        losses = np.full(self.max_epochs, np.nan)
-        val_mse = []
-        train_mse = []
-        
-        # if self.n2one_ft==True:
-        #     self.std = self.utils.feat_std[:, :, self.utils.target_index].unsqueeze(1).to(self.device)
-        #     self.mean = self.utils.feat_mean[:, :, self.utils.target_index].unsqueeze(1).to(self.device) 
-        # else:
-        #     self.std = self.utils.feat_std.to(self.device)
-        #     self.mean = self.utils.feat_mean.to(self.device)
-    
-        torch.autograd.set_detect_anomaly(True)
-        min_vali_loss=None
-        
         early_stopping = EarlyStopping(patience=self.args['patience'], verbose=True)
         optimizer = self.select_optimizer_()
         # loss_scaler = self.select_scaler_()
@@ -577,18 +542,17 @@ class Trainer():
                 optimizer.zero_grad()
 
                 self.model.train()
-                epoch_time = time.time()
-                
                 for iteration, (sample_X, sample_Y, mask_X, mask_Y) in enumerate(self.train_dataloader):
                     # samples = samples.to(self.device)
                     # masks = masks.to(self.device)
-                    sample_X = sample_X.to(self.device)
-                    mask_X = mask_X.to(self.device)
+                    
 #                     sample_X = copy.deepcopy(samples[:, :self.seq_len, :]).to(self.device)
 #                     sample_Y = copy.deepcopy(samples[:, -self.pred_len:, :]).to(self.device)
                     
 #                     mask_X = copy.deepcopy(masks[:, :self.seq_len, :]).to(self.device)
 #                     mask_Y = copy.deepcopy(masks[:, -self.pred_len:, :]).to(self.device)
+                    sample_X = sample_X.to(self.device)
+                    mask_X = mask_X.to(self.device)
                     
                     with torch.cuda.amp.autocast():
 
@@ -626,7 +590,6 @@ class Trainer():
                     # loss_scaler(loss, optimizer, parameters=self.model.parameters(), update_grad=(iteration + 1) % self.accum_iter == 0)
                     loss.backward()
                     optimizer.step()
-                    # scheduler.step()
                     
                     # we use a per iteration (instead of per epoch) lr scheduler
                     if (iteration + 1) % self.accum_iter == 0:
@@ -634,8 +597,7 @@ class Trainer():
 
                     # del samples
                     # del masks
-                
-                print("Epoch: {} cost time: {}".format(it + 1, time.time() - epoch_time))
+
                 batch_loss /= len(self.train_dataloader)
                 
                 val_mse = self.evaluate_forecast(model=self.model, dataloader=self.val_dataloader, args=self.args, train_or_val='val')['mse_dict']['MSE']
@@ -751,54 +713,54 @@ class Trainer():
         }
         return metrics
     
-#     def evaluate(self, model, dataloader, args, train_or_val):
+    def evaluate(self, model, dataloader, args, train_or_val):
         
-#         metrics = self.predict(model=model, dataloader=dataloader, args=args)
-#         predictions = metrics['pred']
-#         masks = metrics['masks']
-#         val_X = metrics["samples"]
-#         loss = metrics['batch_loss']
-#         og_masks = metrics['og_masks']
+        metrics = self.predict(model=model, dataloader=dataloader, args=args)
+        predictions = metrics['pred']
+        masks = metrics['masks']
+        val_X = metrics["samples"]
+        loss = metrics['batch_loss']
+        og_masks = metrics['og_masks']
         
-#         predictions = predictions.to(self.device)
-#         val_X = val_X.to(self.device)
+        predictions = predictions.to(self.device)
+        val_X = val_X.to(self.device)
         
-#         # predictions = predictions*self.std + self.mean
-#         # val_X = val_X*self.std + self.mean
+        # predictions = predictions*self.std + self.mean
+        # val_X = val_X*self.std + self.mean
     
-#         twodmasks = masks.unsqueeze(-1) * torch.ones(1, predictions.shape[2], device=masks.device)
-#         twodmasks = twodmasks*og_masks
+        twodmasks = masks.unsqueeze(-1) * torch.ones(1, predictions.shape[2], device=masks.device)
+        twodmasks = twodmasks*og_masks
         
-#         MSE_dict = {}
-#         MAE_dict = {}
+        MSE_dict = {}
+        MAE_dict = {}
         
-#         with torch.cuda.amp.autocast():
+        with torch.cuda.amp.autocast():
             
-#             if self.feature_wise_mse=='True':
-#                 '''
-#                 MSE
-#                 '''
-#                 sqred_err = (predictions-val_X)**2
-#                 sum_sqred_err = (sqred_err*twodmasks).sum((0,1)) # sum across batches and windows for each feature
-#                 feature_wise_mse = (sum_sqred_err/twodmasks.sum((0,1)))
-#                 MSE_dict = {train_or_val+"_"+self.utils.inp_cols[idx]:feature_wise_mse[idx].item() for idx in range(self.model.num_feats)}
+            if self.feature_wise_mse=='True':
+                '''
+                MSE
+                '''
+                sqred_err = (predictions-val_X)**2
+                sum_sqred_err = (sqred_err*twodmasks).sum((0,1)) # sum across batches and windows for each feature
+                feature_wise_mse = (sum_sqred_err/twodmasks.sum((0,1)))
+                MSE_dict = {train_or_val+"_"+self.utils.inp_cols[idx]:feature_wise_mse[idx].item() for idx in range(self.model.num_feats)}
 
-#                 '''
-#                 MAE
-#                 '''
-#                 abs_err = torch.abs(predictions - val_X)
-#                 masked_abs_err = abs_err*twodmasks
+                '''
+                MAE
+                '''
+                abs_err = torch.abs(predictions - val_X)
+                masked_abs_err = abs_err*twodmasks
 
-#                 feature_wise_mae = masked_abs_err.sum((0, 1))/twodmasks.sum((0, 1))
-#                 MAE_dict = {train_or_val+"_"+self.utils.inp_cols[idx]:feature_wise_mae[idx].item() for idx in range(self.model.num_feats)}
+                feature_wise_mae = masked_abs_err.sum((0, 1))/twodmasks.sum((0, 1))
+                MAE_dict = {train_or_val+"_"+self.utils.inp_cols[idx]:feature_wise_mae[idx].item() for idx in range(self.model.num_feats)}
             
-#             MSE = ((((predictions-val_X)**2)*twodmasks).sum())/twodmasks.sum()
-#             MSE_dict["MSE"] = MSE.item()
+            MSE = ((((predictions-val_X)**2)*twodmasks).sum())/twodmasks.sum()
+            MSE_dict["MSE"] = MSE.item()
 
-#             MAE = ((torch.abs(predictions-val_X)*twodmasks).sum())/twodmasks.sum()
-#             MAE_dict["MAE"] = MAE.item()
+            MAE = ((torch.abs(predictions-val_X)*twodmasks).sum())/twodmasks.sum()
+            MAE_dict["MAE"] = MAE.item()
 
-#         return {'avg_loss':loss, 'mse_dict':MSE_dict, 'mae_dict':MAE_dict, 'preds':predictions, 'gt': val_X, 'mask': masks, 'og_masks':og_masks}
+        return {'avg_loss':loss, 'mse_dict':MSE_dict, 'mae_dict':MAE_dict, 'preds':predictions, 'gt': val_X, 'mask': masks, 'og_masks':og_masks}
 
     def evaluate_forecast(self, model, dataloader, args, train_or_val):
         model.eval() # setting model to eval mode
@@ -829,17 +791,18 @@ class Trainer():
 #             mask_Y = copy.deepcopy(masks[:, -self.pred_len:, :]).to(self.device)
             sample_X = sample_X.to(self.device)
             mask_X = mask_X.to(self.device)
-
+        
             with torch.cuda.amp.autocast():
                 pred = model(sample_X, mask_X, self.mpl)
                 
                 if self.n2one_ft==True:
                     sample_Y = sample_Y[:, :, self.utils.target_index].unsqueeze(2)
-                
+            
             pred = pred[:, -self.args['pred_len']:, :]
             sample_Y = sample_Y[:, -self.args['pred_len']:, :].to(self.device)
             mask_Y = mask_Y[:, -self.args['pred_len']:, :].to(self.device)
             
+            # samples_list.append(samples.transpose(1, 2).detach())
             loss, _, _ = model.forward_loss(data=sample_Y, 
                                                  pred=pred, 
                                                  miss_idx=mask_Y, 
@@ -848,9 +811,7 @@ class Trainer():
             samples_list.append(sample_Y.detach())
             preds_list.append(pred.detach())
             og_masks_list.append(mask_Y.detach())
-                    
             
-
             loss_value = loss.item()
             batch_loss += loss_value
             del sample_X, sample_Y
@@ -900,6 +861,31 @@ class Trainer():
         
         
     def test(self, model, flag='test'):
+
+        test_data, test_dataloader = self._get_data(flag=flag)
+        
+        with torch.no_grad():
+            # val_eval_dict = self.evaluate_forecast(model=model, dataloader=self.val_dataloader, args=self.args, train_or_val='val')
+            # train_eval_dict = self.evaluate_forecast(model=model, dataloader=self.train_dataloader, args=self.args, train_or_val='train')
+            test_eval_dict = self.evaluate_forecast(model=model, dataloader=test_dataloader, args=self.args, train_or_val='test')
+
+            self.wandb_summarize(test_eval_dict["mse_dict"], train_or_test='test')
+            self.wandb_summarize(test_eval_dict["mae_dict"], train_or_test='test')
+
+            wandb.finish()
+        
+        mse = test_eval_dict['mse_dict']['MSE']
+        mae = test_eval_dict['mae_dict']['MAE']
+        
+        folder_path=self.args['output_path']
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        print('{0}->{1}, mse:{2:.3f}, mae:{3:.3f}'.format(self.seq_len, self.pred_len, mse, mae))
+        f = open(folder_path+"score.txt", 'a')
+        f.write('{0}->{1}, {2:.3f}, {3:.3f} \n'.format(self.seq_len, self.pred_len, mse, mae))
+        f.close()
+
+    def test_masked(self, model, flag='test'):
         
         # gt_test_dataloader = self.get_data(test_X_, split_flag='test')
         test_data, test_dataloader = self._get_data(flag=flag)
@@ -970,10 +956,7 @@ class Trainer():
             if self.feature_wise_mse=='True':
                 '''
                 MSE
-                '''
-                print(f"predictions shape = {predictions.shape}")
-                print(f"val_X shape = {val_X.shape}")
-                
+                '''                
                 sqred_err = (predictions-val_X)**2
                 sum_sqred_err = (sqred_err*twodmasks).sum((0,1)) # sum across batches and windows for each feature
                 feature_wise_mse = (sum_sqred_err/twodmasks.sum((0,1)))
@@ -1006,7 +989,7 @@ class Trainer():
         f = open(folder_path+"score_"+flag+"_"+self.args['root_path'].split('/')[-1]+".txt", 'a')
         f.write('{0}->{1}, {2:.3f}, {3:.3f} \n'.format(self.seq_len, self.pred_len, mse, mae))
         f.close()
-
+        
 def mae_base(**kwargs):
     model = MaskedAutoencoder(
         embed_dim=64, depth=8, num_heads=4,

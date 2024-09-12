@@ -7,16 +7,16 @@ ROOT_PATHS=$1
 DEVICE=$2
 TRIAL=$3
 MASKINGTYPE=$4
-PRED_LEN_LIST=$5
+# PRED_LEN_LIST=$5
 
-SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_ettm1"
+SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_ettm1.csv"
 
-GT_SOURCE_FILE="ETTm1"
+GT_SOURCE_FILE="ETTm1.csv"
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
 OUTPUT_PATH="./outputs/${MASKINGTYPE}/ETTm1_v${TRIAL}/"
 
-IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
+# IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 
 for id in $ROOT_PATHS; do
     
@@ -33,11 +33,15 @@ for id in $ROOT_PATHS; do
         --mask_ratio 0.50 \
         --lr 0.001 \
         --batch_size 16 \
-        --encoder_depth 2 \
+        --encoder_depth 3 \
         --encoder_num_heads 8 \
         --encoder_embed_dim 32 \
+        --decoder_depth 2 \
+        --decoder_num_heads 8 \
+        --decoder_embed_dim 32 \
         --project_name ett_masking \
-        --trial $TRIAL
+        --trial $TRIAL \
+        --dropout 0.1
 
     # FINETUNE WITH NON-FROZEN ENCODER
     for pred_len in 96 192 336 720; do
@@ -55,11 +59,12 @@ for id in $ROOT_PATHS; do
             --pred_len $pred_len \
             --source_filename $SOURCE_FILE \
             --pretrain_ckpt_name ckpt_best.pth \
-            --encoder_depth 2 \
+            --encoder_depth 3 \
             --encoder_num_heads 8 \
             --encoder_embed_dim 32 \
             --lr 0.0001 \
             --dropout 0.1 \
+            --fc_dropout 0.05 \
             --batch_size 32 \
             --project_name ett_masking \
             --output_path $OUTPUT_PATH \

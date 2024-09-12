@@ -26,11 +26,8 @@ warnings.filterwarnings('ignore')
 '''
 REMOVE NAME FROM THE CODE
 '''
+#2023
 
-fix_seed = 2023
-random.seed(fix_seed)
-torch.manual_seed(fix_seed)
-np.random.seed(fix_seed)
 
 
 parser = argparse.ArgumentParser(description='benchmarktesting')
@@ -41,7 +38,7 @@ parser.add_argument('--seed', type=int, default=2023)
 
 # data loader
 parser.add_argument('--dataset', type=str, required=True, default='ETT', help='dataset type')
-parser.add_argument('--root_path', type=str, default='/raid/abhilash/forecasting_datasets/', help='root path of the data, code and model files')
+parser.add_argument('--root_path', type=str, default='/raid/abhilash/forecasting_datasets/ETT/', help='root path of the data, code and model files')
 parser.add_argument('--source_filename', type=str, default='ETTh1', help='name of the data file')
 parser.add_argument('--gt_root_path', type=str, default=None, help='path to ground-truth data')
 parser.add_argument('--gt_source_filename', type=str, default=None, help='path to ground-truth filename')
@@ -72,7 +69,6 @@ parser.add_argument('--patience', type=int, default=3, help='early stopping pati
 parser.add_argument('--pct_start', type=float, default=0.3, help='pct_start')
 parser.add_argument('--lradj', type=str, default='type1', help='adjust learning rate')
 parser.add_argument('--output_path', type=str, default='', help='path where all output are stored')
-parser.add_argument('--trial', type=int, default=0)
 
 # model define
 parser.add_argument('--encoder_embed_dim', type=int, default=64, help='encoder embedding dimension in the feature space')
@@ -81,6 +77,8 @@ parser.add_argument('--encoder_num_heads', type=int, default=4, help='number of 
 parser.add_argument('--decoder_depth', type=int, default=2, help='number of decoder blocks')
 parser.add_argument('--decoder_num_heads', type=int, default=4, help='number of decoder multi-attention heads')
 parser.add_argument('--decoder_embed_dim', type=int, default=32, help='decoder embedding dimension in the feature space')
+parser.add_argument('--kdim', type=int, default=32, help='decoder embedding dimension in the feature space')
+parser.add_argument('--vdim', type=int, default=32, help='decoder embedding dimension in the feature space')
 parser.add_argument('--mlp_ratio', type=int, default=4, help='mlp ratio for vision transformer')
 
 # training 
@@ -94,7 +92,7 @@ parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--max_epochs', type=int, default=10)
 parser.add_argument('--eval_freq', type=int, default=1, help='frequency at which we are evaluating the model during training')
 parser.add_argument('--dropout', type=float, default=0.05, help='dropout')
-parser.add_argument('--fc_dropout', type=float, default=0.05, help='fc_dropout')
+parser.add_argument('--fc_dropout', type=float, default=0.05, help='fcr dropout')
 
 # GPU
 parser.add_argument('--device', type=str, default='3', help='cuda device')
@@ -109,11 +107,14 @@ parser.add_argument('--save_code', type=str, default='True', help='whether to lo
 
 args = parser.parse_args()
 
+# fix_seed = 2099
+# random.seed(fix_seed)
+# torch.manual_seed(fix_seed)
+# np.random.seed(fix_seed)
 fix_seed = args.seed
 random.seed(fix_seed)
 torch.manual_seed(fix_seed)
 np.random.seed(fix_seed)
-
 '''
 update run name
 '''
@@ -126,32 +127,21 @@ set the cuda device
 '''
 args.device = 'cuda:' + args.device if torch.cuda.is_available() else 'cpu'
 
+# if args.use_gpu:
+#     args.device = 'cuda:'
+# elif args.use_multi_gpu:
     
 '''
 read and process data
 '''
-# dh = DataHandler(args)
-# train_X, val_X, test_X, utils = dh.handle()
-
 dh = DataHandler(args)
-# train_X, val_X, test_X, 
 utils = dh.handle()
+# print(f"test_X shape = {test_X.shape}")
 
 if args.task_name=='pretrain':
     
     model = MaskedAutoencoder(utils, args, num_feats=len(dh.handler.features_col))
-    # print(model)
-    # print(sum(p.numel() for p in model.parameters() if p.requires_grad))
-    # total_params = 0
-    # print("Parameter name and count:\n")
-    # for name, param in model.named_parameters():
-    #     if param.requires_grad:
-    #         param_count = param.numel()
-    #         print(f"{name}: {param_count}")
-    #         total_params += param_count
-    # print(f"total params = {total_params}")
-    # exit(0)
-    
+
     trainer = Trainer(args=vars(args), model=model, utils=utils)
 
     args.pretrain_checkpoints_dir = os.path.join(args.pretrain_checkpoints_dir, base_run_name) 
@@ -175,34 +165,32 @@ elif args.task_name=='finetune':
     load_model_path = os.path.join(args.pretrain_checkpoints_dir, args.pretrain_run_name, args.pretrain_ckpt_name)
     
     model = MaskedAutoencoder(utils, args, num_feats=len(dh.handler.features_col))
+
+#     if os.path.exists(load_model_path) and args.load_pretrain=="True":
+#         '''
+#         fine-tune an already pretrained model
+#         '''
+#         print(f"Pre-trained model exists. Loading {args.pretrain_ckpt_name} ... ")
+#         encoder = torch.load(load_model_path, map_location='cpu')
     
-    '''
-    Training phase
-    '''
-    print(f"load_model_path = {load_model_path}")
     if os.path.exists(load_model_path):
-        print(f"Transferring weights from pretrained model")
         model = transfer_weights(load_model_path, model, device=args.device)
     
     trainer = Trainer(args=vars(args), model=model, utils=utils)
-    
     history, model = trainer.finetune()#train_X, val_X, test_X)
     
     save_model_path = os.path.join(args.finetune_checkpoints_dir, args.ckpt_name)
     torch.save(model, save_model_path) # saves the final model; may not be the best model
     
-    '''
-    Testing phase
-    '''
-    # _, _, test_X_, _ = dh.handle(gt=True)
-    
     best_model_path = os.path.join(args.finetune_checkpoints_dir, 'checkpoint.pth')
-    
     print(f"Loading best fine-tuned model for testing ...")
-    
     ft_model = torch.load(best_model_path, map_location='cpu').to(args.device)
     
-    trainer.test(ft_model, flag='test')
-    trainer.test(ft_model, flag='val')
+    if args.gt_root_path is not None:
+        trainer.test_masked(ft_model, flag='test')
+        trainer.test_masked(ft_model, flag='val')
+    else:
+        trainer.test(ft_model, flag='test')
+        trainer.test(ft_model, flag='val')
     
 print(f"Done with model {args.task_name} ")
