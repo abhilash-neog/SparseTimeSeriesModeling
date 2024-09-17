@@ -14,7 +14,7 @@ import math
 import datetime
 import timefeatures
 
-from trainer import Trainer
+from trainer_test import Trainer
 from model import MaskedAutoencoder
 from utils.util import Utils
 from tools import transfer_weights

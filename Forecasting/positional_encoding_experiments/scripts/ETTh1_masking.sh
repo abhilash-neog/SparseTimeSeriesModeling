@@ -7,22 +7,22 @@ ROOT_PATHS=$1
 DEVICE=$2
 TRIAL=$3
 MASKINGTYPE=$4
-# PRED_LEN_LIST=$5
+PRED_LEN_LIST=$5
 
 SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_etth1.csv"
 
 GT_SOURCE_FILE="ETTh1.csv"
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
-OUTPUT_PATH="./outputs_mask/${MASKINGTYPE}/ETTh1_v${TRIAL}_TEST/"
+OUTPUT_PATH="./outputs/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
 
-# IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
+IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 
 for id in $ROOT_PATHS; do
     
     root_path="${BASE_PATH}${id}"
-    # # PRETRAIN
-    python -u executor_test.py \
+    # PRETRAIN
+    python -u executor.py \
         --task_name pretrain \
         --device $DEVICE \
         --root_path $root_path \
@@ -44,8 +44,8 @@ for id in $ROOT_PATHS; do
         --dropout 0.05
 
     # FINETUNE WITH NON-FROZEN ENCODER
-    for pred_len in 96 192 336 720; do
-        python -u executor_test.py \
+    for pred_len in ${PRED_LEN_ARRAY[@]}; do
+        python -u executor.py \
             --task_name finetune \
             --device $DEVICE \
             --root_path $root_path\

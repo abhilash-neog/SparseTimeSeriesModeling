@@ -22,7 +22,7 @@ from torch.optim import lr_scheduler
 from timm.models.vision_transformer import Block
 from utils.util import MaskEmbed, MAEDataset, NativeScaler, get_1d_sincos_pos_embed, ActiveEmbed, FeatEmbed, adjust_learning_rate
 from positional_encodings.torch_encodings import PositionalEncoding1D, PositionalEncoding2D
-from tools import EarlyStopping, adjust_learning_rate, visual
+from tools import EarlyStopping, adjust_learning_rate
 
 eps = 1e-6
 
@@ -54,8 +54,8 @@ class ModelPlugins():
         self.batch_size = batch_size
         self.num_feats = num_feats
         
-        # self.pos_embed = nn.Parameter(torch.zeros(1, self.window_len + 1, self.enc_embed_dim), requires_grad=False).to(self.device)
-        self.pos_embed = PositionalEncoding2D(enc_embed_dim).to(self.device)
+        self.pos_embed = nn.Parameter(torch.zeros(1, self.window_len + 1, self.enc_embed_dim), requires_grad=False).to(self.device)
+        # self.pos_embed = PositionalEncoding2D(enc_embed_dim).to(self.device)
         
         self.decoder_pos_embed = nn.Parameter(torch.zeros(1, self.window_len + 1, self.dec_embed_dim), requires_grad=False).to(self.device)
         # self.decoder_pos_embed = PositionalEncoding2D(dec_embed_dim).to(self.device)
@@ -69,11 +69,11 @@ class ModelPlugins():
     
     def initialize_embeddings(self):
         
-        enc_z = torch.rand((1, self.window_len + 1, self.num_feats, self.enc_embed_dim)).to(self.device) # +1 for the cls token
-        self.pos_embed = self.pos_embed(enc_z)
+        # enc_z = torch.rand((1, self.window_len + 1, self.num_feats, self.enc_embed_dim)).to(self.device) # +1 for the cls token
+        # self.pos_embed = self.pos_embed(enc_z)
         
-#         pos_embed = get_1d_sincos_pos_embed(self.pos_embed.shape[-1], self.window_len, cls_token=True)
-#         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+        pos_embed = get_1d_sincos_pos_embed(self.pos_embed.shape[-1], self.window_len, cls_token=True)
+        self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
         decoder_pos_embed = get_1d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], self.window_len, cls_token=True)
         self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
@@ -133,31 +133,6 @@ class Trainer():
     def _get_data(self, flag, gt=None):
         data_set, data_loader = data_provider(self.args, flag, gt)
         return data_set, data_loader
-    
-#     def get_data(self, X, split_flag):
-        
-#         M = 1 - (1 * (torch.isnan(X)))
-#         M = M.float()
-        
-#         X = torch.nan_to_num(X)
-        
-#         '''
-#         Dataloader
-#         '''
-#         if split_flag=='test':
-#             dataset = MAEDataset(X, M)
-#             dataloader = DataLoader(
-#                 dataset,
-#                 shuffle=False,
-#                 batch_size=self.batch_size
-#             )
-#         else:
-#             dataset = MAEDataset(X, M)
-#             dataloader = DataLoader(
-#                 dataset, sampler=RandomSampler(dataset),
-#                 batch_size=self.batch_size,
-#             )
-#         return dataloader
     
     def val_one_epoch(self, dataloader, split, masked_penalize):
         
@@ -935,7 +910,7 @@ class Trainer():
                 mask_Y = mask_Y[:, -self.args['pred_len']:, :].to(self.device)
                 
                 preds_list.append(pred.detach())
-                    
+
                 del sample_X, sample_Y
                 del mask_X, mask_Y
             
@@ -952,15 +927,6 @@ class Trainer():
             
             samples_list.append(sample_Y.detach())
             og_masks_list.append(mask_Y.detach())
-            
-            if it % 100 == 0:
-                input = sample_X.detach().cpu().numpy()
-                if test_data.scale and self.args['inverse']:
-                    shape = input.shape
-                    input = test_data.inverse_transform(input.squeeze(0)).reshape(shape)
-                gt = np.concatenate((input[0, :, -1], samples_list[it].cpu().numpy()[0, :, -1]), axis=0)
-                pd = np.concatenate((input[0, :, -1], preds_list[it].cpu().numpy()[0, :, -1]), axis=0)
-                visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
             
             del sample_X, sample_Y
             del mask_X, mask_Y

@@ -22,7 +22,7 @@ from torch.optim import lr_scheduler
 from timm.models.vision_transformer import Block
 from utils.util import MaskEmbed, MAEDataset, NativeScaler, get_1d_sincos_pos_embed, ActiveEmbed, FeatEmbed, adjust_learning_rate
 from positional_encodings.torch_encodings import PositionalEncoding1D, PositionalEncoding2D
-from tools import EarlyStopping, adjust_learning_rate, visual
+from tools import EarlyStopping, adjust_learning_rate
 
 eps = 1e-6
 
@@ -240,16 +240,19 @@ class Trainer():
                     masked_batch_loss += masked_loss_value
                     unmasked_batch_loss += unmasked_loss_value
 
-            loss_value = loss.item()
+            # loss_value = loss.item()
+            loss_value = masked_loss.item()
             batch_loss += loss_value
 
             if not math.isfinite(loss_value):
                 print("Loss is {}, stopping training".format(loss_value))
                 sys.exit(1)
 
-            loss /= self.accum_iter
+            # loss /= self.accum_iter
+            masked_loss /= self.accum_iter
             
-            loss.backward()
+            # loss.backward()
+            masked_loss.backward()
             optimizer.step()
             
             # loss_scaler(loss, optimizer, parameters=self.model.parameters(), update_grad=(iteration + 1) % self.accum_iter == 0)
@@ -953,14 +956,14 @@ class Trainer():
             samples_list.append(sample_Y.detach())
             og_masks_list.append(mask_Y.detach())
             
-            if it % 100 == 0:
-                input = sample_X.detach().cpu().numpy()
-                if test_data.scale and self.args['inverse']:
-                    shape = input.shape
-                    input = test_data.inverse_transform(input.squeeze(0)).reshape(shape)
-                gt = np.concatenate((input[0, :, -1], samples_list[it].cpu().numpy()[0, :, -1]), axis=0)
-                pd = np.concatenate((input[0, :, -1], preds_list[it].cpu().numpy()[0, :, -1]), axis=0)
-                visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
+            # if it % 100 == 0:
+            #     input = sample_X.detach().cpu().numpy()
+            #     if test_data.scale and self.args['inverse']:
+            #         shape = input.shape
+            #         input = test_data.inverse_transform(input.squeeze(0)).reshape(shape)
+            #     gt = np.concatenate((input[0, :, -1], samples_list[it].cpu().numpy()[0, :, -1]), axis=0)
+            #     pd = np.concatenate((input[0, :, -1], preds_list[it].cpu().numpy()[0, :, -1]), axis=0)
+            #     visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
             
             del sample_X, sample_Y
             del mask_X, mask_Y

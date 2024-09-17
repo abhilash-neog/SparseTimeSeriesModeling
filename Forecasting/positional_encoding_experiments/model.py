@@ -25,7 +25,7 @@ class DecoderWithLinearHead(nn.Module):
         self.encoder_embed_dim = args.encoder_embed_dim
         self.decoder_embed_dim = args.decoder_embed_dim
         self.decoder_num_heads = args.decoder_num_heads
-        self.mlp_ratio = args.mlp_ratio
+        self.mlp_ratio = args.mlp_ratio # need to get rid of the ViT blocks !!!!
         self.norm_layer = norm_layer
         self.decoder_depth = args.decoder_depth
         self.seq_len = args.seq_len
@@ -157,7 +157,7 @@ class MaskedAutoencoder(nn.Module):
                                     embedding_dim=self.embed_dim,
                                     norm_layer=self.norm_layer)
         
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, 1, self.embed_dim))
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))
         
         self.encoder_blocks = nn.ModuleList([
             Block(self.embed_dim, self.num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer)
@@ -337,17 +337,19 @@ class MaskedAutoencoder(nn.Module):
         x = self.mask_embed(x)
         
         # add pos embed w/o cls token
-        x = x + self.mpl.pos_embed[:, 1:, :, :]
+        # x = x + self.mpl.pos_embed[:, 1:, :, :]
         
         # perform cross-attention
         x = self.cross_attention(x, m)
+        
+        x = x + self.mpl.pos_embed[:, 1:, :]
         
         # masking: length -> length * mask_ratio
         if self.task_name=='pretrain':
             x, mask, nask, ids_restore = self.masking(x, m)
         
         # append cls token
-        cls_token = self.cls_token + self.mpl.pos_embed[:, :1, :, :]
+        cls_token = self.cls_token + self.mpl.pos_embed[:, :1, :]
         
         cls_tokens = cls_token.expand(x.shape[0], -1, -1, -1)
         

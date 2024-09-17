@@ -25,7 +25,7 @@ class DecoderWithLinearHead(nn.Module):
         self.encoder_embed_dim = args.encoder_embed_dim
         self.decoder_embed_dim = args.decoder_embed_dim
         self.decoder_num_heads = args.decoder_num_heads
-        self.mlp_ratio = args.mlp_ratio
+        self.mlp_ratio = args.mlp_ratio # need to get rid of the ViT blocks !!!!
         self.norm_layer = norm_layer
         self.decoder_depth = args.decoder_depth
         self.seq_len = args.seq_len
@@ -80,17 +80,20 @@ class DecoderWithLinearHead(nn.Module):
 
 class FlattenHead(nn.Module):
     
-    def __init__(self, args, num_feats):
+    def __init__(self, args, num_feats, trial, encoder_embed_dim):
         super().__init__()
         self.seq_len = args.seq_len
         self.pred_len = args.pred_len
         self.num_feats = num_feats
-        self.encoder_embed_dim = args.encoder_embed_dim
+        # self.encoder_embed_dim = args.encoder_embed_dim
+        self.encoder_embed_dim = encoder_embed_dim
         
         self.decoder_inp = nn.Linear(self.seq_len, self.pred_len, bias=True)
         self.decoder_pred = nn.Linear(self.encoder_embed_dim, self.num_feats, bias=True)
-        self.dropout = nn.Dropout(args.fc_dropout)
-
+        # self.dropout = nn.Dropout(args.fc_dropout)
+        dropout = trial.suggest_float("fc_dropout", args.fc_dropout_range[0], args.fc_dropout_range[1])
+        self.dropout = nn.Dropout(dropout)
+        
     def forward(self, x, means, std):  # [bs x seq_len x d_model]
         
         x = x.permute(0, 2, 1) # [bs x enc_embed_dim x seq_len]
@@ -114,6 +117,7 @@ class MaskedAutoencoder(nn.Module):
     def __init__(self,
                  utils,
                  args,
+                 trial,
                  num_feats,
                  norm_layer=nn.LayerNorm, 
                  norm_field_loss=False,
@@ -132,15 +136,30 @@ class MaskedAutoencoder(nn.Module):
         # --------------------------------------------------------------------------
         # MAE encoder specifics
         # --------------------------------------------------------------------------
-        self.embed_dim = args.encoder_embed_dim
-        self.depth = args.encoder_depth
-        self.num_heads= args.encoder_num_heads
+        enc_possible_embed = [h for h in range(args.encoder_embed_range[0], args.encoder_embed_range[1]+1) if h % 2 == 0]
+        self.embed_dim = trial.suggest_categorical("encoder_embed_dim", enc_possible_embed)
+        
+        self.depth = trial.suggest_int("encoder_depth", args.encoder_depth_range[0], args.encoder_depth_range[1])
+        
+        enc_possible_heads = [h for h in range(4, args.encoder_embed_range[1]+1) if (self.embed_dim>h) and self.embed_dim % h == 0]
+        
+        self.num_heads = trial.suggest_categorical("encoder_num_heads", enc_possible_heads)
+        # self.num_heads = trial.suggest_int("encoder_num_heads", args.encoder_heads_range[0], args.encoder_heads_range[1])
         self.mlp_ratio = args.mlp_ratio
-        self.decoder_embed_dim = args.decoder_embed_dim
-        self.decoder_num_heads = args.decoder_num_heads
-        self.decoder_depth = args.decoder_depth
+        # self.decoder_embed_dim = args.decoder_embed_dim
+        
+        dec_possible_embed = [h for h in range(args.decoder_embed_range[0], args.decoder_embed_range[1]+1) if h % 2 == 0]
+        self.decoder_embed_dim = trial.suggest_categorical("decoder_embed_dim", dec_possible_embed)       
+        # self.decoder_num_heads = args.decoder_num_heads
+        dec_possible_heads = [h for h in [1, 2, 4, 8, 16, 32, 64] if (h<self.embed_dim) and self.embed_dim % h == 0]
+        self.decoder_num_heads = trial.suggest_categorical("decoder_num_heads", dec_possible_heads)
+        # self.decoder_depth = args.decoder_depth
+        self.decoder_depth = trial.suggest_int("decoder_depth", args.decoder_depth_range[0], args.decoder_depth_range[1])
+        
         self.mask_ratio = args.mask_ratio
-        self.dropout = args.dropout
+        # self.dropout = args.dropout
+        self.dropout = trial.suggest_float("dropout", args.dropout_range[0], args.dropout_range[1])
+        
         self.task_name = args.task_name
         self.seq_len = args.seq_len
         self.pred_len = args.pred_len
@@ -191,7 +210,7 @@ class MaskedAutoencoder(nn.Module):
             # Decoder With a Linear Head
             # ----------------
             # self.dfh = DecoderWithLinearHead(args, num_feats, self.cls_token)
-            self.fh = FlattenHead(args, num_feats)
+            self.fh = FlattenHead(args, num_feats, trial, self.embed_dim)
         
         self.set_masking_mode()
             
@@ -315,7 +334,7 @@ class MaskedAutoencoder(nn.Module):
         
         x = x.view(-1, num_feat, d)
         
-        m_ = copy.deepcopy(m.reshape(-1, num_feat))
+        m_ = copy.deepcopy(m.reshape(-1, num_feat)) #replaced view with reshape on ARC
         
         attn_out, _ = self.mhca(var_query, x, x, key_padding_mask=m_)
         
@@ -421,6 +440,7 @@ class MaskedAutoencoder(nn.Module):
         
         # data = data.transpose(1, 2)
         target = data
+        
         if mask is not None:
             mask = mask.unsqueeze(-1) * torch.ones(1, pred.shape[2], device=mask.device)
             mask = mask*miss_idx

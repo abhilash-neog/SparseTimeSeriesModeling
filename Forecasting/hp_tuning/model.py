@@ -101,8 +101,8 @@ class FlattenHead(nn.Module):
         
         x = self.dropout(x)
         
-        x = x * (std[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
-        x = x + (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
+        # x = x * (std[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
+        # x = x + (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
         return x
 
 class MaskedAutoencoder(nn.Module):
@@ -327,11 +327,11 @@ class MaskedAutoencoder(nn.Module):
         
         means = torch.sum(x, dim=1) / torch.sum(m == 1, dim=1)
         means = means.unsqueeze(1)
-        x = x - means
+        # x = x - means
         
         stdev = torch.sqrt(torch.sum(x * x, dim=1) / torch.sum(m == 1, dim=1) + 1e-5)
         stdev = stdev.unsqueeze(1)
-        x /= stdev
+        # x /= stdev
         
         # embed patches
         x = self.mask_embed(x)
@@ -400,8 +400,9 @@ class MaskedAutoencoder(nn.Module):
         # print(f"means shape = {means.shape}")
         # exit(0)
         # xcloned = x.clone
-        x = x * (std[:, 0, :].unsqueeze(1).repeat(1, self.seq_len, 1))
-        x = x + (means[:, 0, :].unsqueeze(1).repeat(1, self.seq_len, 1))
+        
+        # x = x * (std[:, 0, :].unsqueeze(1).repeat(1, self.seq_len, 1))
+        # x = x + (means[:, 0, :].unsqueeze(1).repeat(1, self.seq_len, 1))
         
         return x
     

@@ -217,16 +217,18 @@ class Trainer():
                     masked_batch_loss += masked_loss_value
                     unmasked_batch_loss += unmasked_loss_value
 
-            loss_value = loss.item()
+            # loss_value = loss.item()
+            loss_value = masked_loss.item()            
             batch_loss += loss_value
 
             if not math.isfinite(loss_value):
                 print("Training::Loss is {}, stopping training".format(loss_value))
                 sys.exit(1)
 
-            loss /= self.accum_iter
-            
-            loss.backward()
+            # loss /= self.accum_iter
+            masked_loss /= self.accum_iter
+            # loss.backward()
+            masked_loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             optimizer.step()
             scheduler.step()

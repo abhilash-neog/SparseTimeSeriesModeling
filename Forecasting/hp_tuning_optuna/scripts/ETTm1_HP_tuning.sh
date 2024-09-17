@@ -1,5 +1,5 @@
 DATASET="ETT"
-SOURCE_FILE="ETTh1.csv"
+SOURCE_FILE="ETTm1.csv"
 
 PRETRAIN_EPOCHS=50
 FINETUNE_EPOCHS=10
@@ -17,9 +17,9 @@ DECODER_HEADS=$7
 DROPOUT=$8
 FC_DROPOUT=$9
 
-OUTPUT_PATH="./outputs_revNorm/ETTh1_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
-PRETRAIN_CKPT_DIR="./pretrain_checkpoints_ETTh1_revNorm/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
-FINETUNE_CKPT_DIR="./finetune_checkpoints_ETTh1_revNorm/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
+OUTPUT_PATH="./outputs/ETTm1_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
+PRETRAIN_CKPT_DIR="./pretrain_checkpoints_ETTm1/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
+FINETUNE_CKPT_DIR="./finetune_checkpoints_ETTm1/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
 
 ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
@@ -35,6 +35,7 @@ python -u executor.py \
     --mask_ratio 0.50 \
     --lr 0.001 \
     --batch_size 16 \
+    --dropout $DROPOUT \
     --encoder_depth $ENCODER_DEPTH \
     --decoder_depth $DECODER_DEPTH \
     --encoder_num_heads $ENCODER_HEADS \
@@ -42,8 +43,7 @@ python -u executor.py \
     --decoder_num_heads $DECODER_HEADS \
     --decoder_embed_dim $DECODER_DIM \
     --project_name ett \
-    --pretrain_checkpoints_dir $PRETRAIN_CKPT_DIR \
-    --dropout $DROPOUT
+    --pretrain_checkpoints_dir $PRETRAIN_CKPT_DIR
 
 # FINETUNE WITH NON-FROZEN ENCODER
 for pred_len in 96 192 336 720; do
@@ -64,7 +64,7 @@ for pred_len in 96 192 336 720; do
         --encoder_embed_dim $ENCODER_DIM \
         --lr 0.0001 \
         --fc_dropout $FC_DROPOUT \
-        --batch_size 16 \
+        --batch_size 32 \
         --project_name ett \
         --output_path $OUTPUT_PATH \
         --pretrain_checkpoints_dir $PRETRAIN_CKPT_DIR \

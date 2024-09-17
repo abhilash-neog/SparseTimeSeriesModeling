@@ -17,9 +17,9 @@ DECODER_HEADS=$7
 DROPOUT=$8
 FC_DROPOUT=$9
 
-OUTPUT_PATH="./outputs_revNorm/ETTh1_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
-PRETRAIN_CKPT_DIR="./pretrain_checkpoints_ETTh1_revNorm/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
-FINETUNE_CKPT_DIR="./finetune_checkpoints_ETTh1_revNorm/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
+OUTPUT_PATH="./outputs/ETTh1_96_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
+PRETRAIN_CKPT_DIR="./pretrain_checkpoints_ETTh1/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
+FINETUNE_CKPT_DIR="./finetune_checkpoints_ETTh1/ckpt_${ENCODER_DIM}_${ENCODER_DEPTH}_${ENCODER_HEADS}_${DECODER_DIM}_${DECODER_DEPTH}_${DECODER_HEADS}_dropout_${DROPOUT}_${FC_DROPOUT}/"
 
 ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
@@ -28,13 +28,14 @@ python -u executor.py \
     --task_name pretrain \
     --device $DEVICE \
     --root_path $ROOT_PATH \
-    --run_name "pretrain_${SOURCE_FILE}_mask_50" \
+    --run_name "pretrain_96_${SOURCE_FILE}_mask_50" \
     --source_filename $SOURCE_FILE \
     --dataset $DATASET \
     --max_epochs $PRETRAIN_EPOCHS \
     --mask_ratio 0.50 \
     --lr 0.001 \
     --batch_size 16 \
+    --seq_len 96 \
     --encoder_depth $ENCODER_DEPTH \
     --decoder_depth $DECODER_DEPTH \
     --encoder_num_heads $ENCODER_HEADS \
@@ -51,12 +52,13 @@ for pred_len in 96 192 336 720; do
         --task_name finetune \
         --device $DEVICE \
         --root_path $ROOT_PATH \
-        --run_name "finetune_${SOURCE_FILE}_PRED_${pred_len}" \
-        --pretrain_run_name "pretrain_${SOURCE_FILE}_mask_50" \
+        --run_name "finetune_96_${SOURCE_FILE}_PRED_${pred_len}" \
+        --pretrain_run_name "pretrain_96_${SOURCE_FILE}_mask_50" \
         --freeze_encoder "False" \
         --max_epochs $FINETUNE_EPOCHS \
         --dataset $DATASET \
         --pred_len $pred_len \
+        --seq_len 96 \
         --source_filename $SOURCE_FILE \
         --pretrain_ckpt_name ckpt_best.pth \
         --encoder_depth $ENCODER_DEPTH \
