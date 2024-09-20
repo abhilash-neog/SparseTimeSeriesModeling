@@ -1,5 +1,5 @@
 DATASET="ETT"
-SOURCE_FILE="ETTh1.csv"
+SOURCE_FILE="ETTm1.csv"
 
 PRETRAIN_EPOCHS=50
 FINETUNE_EPOCHS=10
@@ -9,9 +9,9 @@ db=$2
 STATS=$3
 
 pred_len=720
-OUTPUT_PATH="./outputs/ETTh1/"
-PRETRAIN_CKPT_DIR="./pretrain_checkpoints_ETTh1/"
-FINETUNE_CKPT_DIR="./finetune_checkpoints_ETTh1/"
+OUTPUT_PATH="./outputs/ETTm1/"
+PRETRAIN_CKPT_DIR="./pretrain_checkpoints_ETTm1/"
+FINETUNE_CKPT_DIR="./finetune_checkpoints_ETTm1/"
 
 ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 

@@ -1,6 +1,8 @@
 import sys
 sys.path.insert(1, './utils/.')
 
+import optuna
+from optuna.trial import TrialState
 import math
 import torch
 import numpy as np
@@ -136,29 +138,36 @@ class MaskedAutoencoder(nn.Module):
         # --------------------------------------------------------------------------
         # MAE encoder specifics
         # --------------------------------------------------------------------------
-        enc_possible_embed = [h for h in range(args.encoder_embed_range[0], args.encoder_embed_range[1]+1) if h % 2 == 0]
-        self.embed_dim = trial.suggest_categorical("encoder_embed_dim", enc_possible_embed)
+        self.embed_dim = trial.suggest_categorical("encoder_embed_dim", args.encoder_embed_range)
         
-        self.depth = trial.suggest_int("encoder_depth", args.encoder_depth_range[0], args.encoder_depth_range[1])
+        self.depth = trial.suggest_categorical("encoder_depth", args.encoder_depth_range)
         
-        enc_possible_heads = [h for h in range(4, args.encoder_embed_range[1]+1) if (self.embed_dim>h) and self.embed_dim % h == 0]
+        # enc_possible_heads = [h for h in range(4, args.encoder_embed_range[1]+1) if (self.embed_dim>h) and self.embed_dim % h == 0]
         
-        self.num_heads = trial.suggest_categorical("encoder_num_heads", enc_possible_heads)
+        self.num_heads = trial.suggest_categorical("encoder_num_heads", args.encoder_heads_range)
+        if (self.num_heads>self.embed_dim) or (self.embed_dim%self.num_heads) != 0:
+            print(f"Number of Encoder heads = {self.num_heads} || Encoder embedding dimension = {self.embed_dim} :: Pruning Trial")
+            raise optuna.exceptions.TrialPruned()
+        
         # self.num_heads = trial.suggest_int("encoder_num_heads", args.encoder_heads_range[0], args.encoder_heads_range[1])
         self.mlp_ratio = args.mlp_ratio
         # self.decoder_embed_dim = args.decoder_embed_dim
         
-        dec_possible_embed = [h for h in range(args.decoder_embed_range[0], args.decoder_embed_range[1]+1) if h % 2 == 0]
-        self.decoder_embed_dim = trial.suggest_categorical("decoder_embed_dim", dec_possible_embed)       
+        # dec_possible_embed = [h for h in range(args.decoder_embed_range[0], args.decoder_embed_range[1]+1) if h % 2 == 0]
+        self.decoder_embed_dim = trial.suggest_categorical("decoder_embed_dim", args.decoder_embed_range)       
         # self.decoder_num_heads = args.decoder_num_heads
-        dec_possible_heads = [h for h in [1, 2, 4, 8, 16, 32, 64] if (h<self.embed_dim) and self.embed_dim % h == 0]
-        self.decoder_num_heads = trial.suggest_categorical("decoder_num_heads", dec_possible_heads)
+        # dec_possible_heads = [h for h in [1, 2, 4, 8, 16, 32, 64] if (h<self.embed_dim) and self.embed_dim % h == 0]
+        self.decoder_num_heads = trial.suggest_categorical("decoder_num_heads", args.decoder_heads_range)
         # self.decoder_depth = args.decoder_depth
-        self.decoder_depth = trial.suggest_int("decoder_depth", args.decoder_depth_range[0], args.decoder_depth_range[1])
+        if (self.decoder_num_heads>self.decoder_embed_dim) or (self.decoder_embed_dim%self.decoder_num_heads) != 0:
+            print(f"Number of Decoder heads = {self.decoder_num_heads} || Decoder embedding dimension = {self.decoder_embed_dim} :: Pruning Trial")
+            raise optuna.exceptions.TrialPruned()
+            
+        self.decoder_depth = trial.suggest_categorical("decoder_depth", args.decoder_depth_range)
         
         self.mask_ratio = args.mask_ratio
         # self.dropout = args.dropout
-        self.dropout = trial.suggest_float("dropout", args.dropout_range[0], args.dropout_range[1])
+        self.dropout = trial.suggest_categorical("dropout", args.dropout_range)
         
         self.task_name = args.task_name
         self.seq_len = args.seq_len

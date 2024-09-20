@@ -73,12 +73,12 @@ parser.add_argument('--lradj', type=str, default='type1', help='adjust learning 
 parser.add_argument('--output_path', type=str, default='', help='path where all output are stored')
 
 # model define
-parser.add_argument('--encoder_embed_range', type=int, nargs='+', default=[4,256], help='encoder embedding dimension in the feature space')
-parser.add_argument('--encoder_depth_range', type=int, nargs='+', default=[1,4], help='number of encoder blocks')
-parser.add_argument('--encoder_heads_range', type=int, nargs='+', default=[4,64], help='number of encoder multi-attention heads')
-parser.add_argument('--decoder_embed_range', type=int, nargs='+', default=[4,256], help='decoder embedding dimension in the feature space')
-parser.add_argument('--decoder_depth_range', type=int, nargs='+', default=[1,4], help='number of decoder blocks')
-parser.add_argument('--decoder_heads_range', type=int, nargs='+', default=[4,64], help='number of decoder multi-attention heads')
+parser.add_argument('--encoder_embed_range', type=int, nargs='+', default=[4,8, 16, 32, 64, 128, 256], help='encoder embedding dimension in the feature space')
+parser.add_argument('--encoder_depth_range', type=int, nargs='+', default=[1,2,3,4], help='number of encoder blocks')
+parser.add_argument('--encoder_heads_range', type=int, nargs='+', default=[1,4,8,16,32,64], help='number of encoder multi-attention heads')
+parser.add_argument('--decoder_embed_range', type=int, nargs='+', default=[4,8, 16, 32, 64, 128, 256], help='decoder embedding dimension in the feature space')
+parser.add_argument('--decoder_depth_range', type=int, nargs='+', default=[1,2,3,4], help='number of decoder blocks')
+parser.add_argument('--decoder_heads_range', type=int, nargs='+', default=[1,4,8,16,32,64], help='number of decoder multi-attention heads')
 parser.add_argument('--mlp_ratio', type=int, default=4, help='mlp ratio for vision transformer')
 
 # training 
@@ -97,6 +97,8 @@ parser.add_argument('--fc_dropout_range', type=float, nargs='+', default=[0.0, 0
 
 # GPU
 parser.add_argument('--device', type=str, default='3', help='cuda device')
+parser.add_argument('--db', type=str, default='db.sqlite3', help='db file')
+parser.add_argument('--stats_file', type=str, default='study_stats.txt', help='output stats file')
 
 # weights and biases
 parser.add_argument('--project_name', type=str, default='ett', help='project name in wandb')
@@ -169,13 +171,13 @@ def objective(trial):
     return val_mse
     
 
-study = optuna.create_study(storage="sqlite:///db.sqlite3", sampler=RandomSampler(seed=args.seed), study_name='h1tuning', direction="minimize")
-study.optimize(objective, n_trials=10)
+study = optuna.create_study(storage="sqlite:///"+args.db, sampler=RandomSampler(seed=args.seed), study_name='h1tuning', direction="minimize")
+study.optimize(objective, n_trials=50)
 
 pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
 complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
 
-with open('study_statistics.txt', 'w') as f:
+with open(args.stats_file, 'w') as f:
     print("Study statistics: ")
     print("  Number of finished trials: ", len(study.trials))
     print("  Number of pruned trials: ", len(pruned_trials))
