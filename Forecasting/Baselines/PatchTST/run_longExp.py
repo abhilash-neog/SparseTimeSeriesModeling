@@ -153,7 +153,6 @@ if args.is_training:
             print(f"calling test masked")
             exp.test_masked(setting)#, test=1)
 
-
         if args.do_predict:
             print('>>>>>>>predicting : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
             exp.predict(setting, True)

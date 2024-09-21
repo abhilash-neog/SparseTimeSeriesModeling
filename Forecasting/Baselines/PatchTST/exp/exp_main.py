@@ -316,7 +316,7 @@ class Exp_Main(Exp_Basic):
         print('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
         # f = open("result.txt", 'a')
         f = open(folder_path+"result_"+self.args.root_path.split('/')[-1]+".txt", 'a')
-        f.write(setting + "  \n")
+        f.write(setting + " \n")
         f.write('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
         f.write('\n')
         f.write('\n')
@@ -341,7 +341,6 @@ class Exp_Main(Exp_Basic):
         preds = []
         trues = []
         inputx = []
-        
 #         folder_path = './test_results/' + setting + '/'
 #         if not os.path.exists(folder_path):
 #             os.makedirs(folder_path)
@@ -431,8 +430,8 @@ class Exp_Main(Exp_Basic):
         mae, mse, rmse, mape, mspe, rse, corr = metric(preds, trues)
         print('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
         # f = open("result.txt", 'a')
-        f = open(folder_path+"result_"+self.args.root_path.split('/')[-1]+".txt", 'a')
-        f.write(setting + "  \n")
+        f = open(folder_path+"score_"+self.args.root_path.split('/')[-1]+".txt", 'a')
+        f.write(setting + " \n")
         f.write('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
         f.write('\n')
         f.write('\n')
@@ -446,7 +445,6 @@ class Exp_Main(Exp_Basic):
 
     def predict(self, setting, load=False):
         pred_data, pred_loader = self._get_data(flag='pred')
-
         if load:
             path = os.path.join(self.args.checkpoints, self.args.data + "_" + str(self.args.pred_len)) + "_" + str(self.args.trial)
             # path = os.path.join(self.args.checkpoints, setting)
