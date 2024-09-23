@@ -960,7 +960,7 @@ class Trainer():
                     input = test_data.inverse_transform(input.squeeze(0)).reshape(shape)
                 gt = np.concatenate((input[0, :, -1], samples_list[it].cpu().numpy()[0, :, -1]), axis=0)
                 pd = np.concatenate((input[0, :, -1], preds_list[it].cpu().numpy()[0, :, -1]), axis=0)
-                visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
+                visual(gt, pd, os.path.join(folder_path, str(self.pred_len) + "_" + str(it) + '.pdf'))
             
             del sample_X, sample_Y
             del mask_X, mask_Y
@@ -1002,11 +1002,6 @@ class Trainer():
 
             MAE = ((torch.abs(predictions-val_X)*twodmasks).sum())/twodmasks.sum()
             MAE_dict["MAE"] = MAE.item()
-        
-#         self.wandb_summarize(MSE_dict, train_or_test='test')
-#         self.wandb_summarize(MAE_dict, train_or_test='test')
-
-#         wandb.finish()
         
         mse = MSE_dict['MSE']
         mae = MAE_dict['MAE']

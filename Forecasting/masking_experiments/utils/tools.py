@@ -35,7 +35,18 @@ def adjust_learning_rate(optimizer, scheduler, epoch, args, printout=True):
             param_group['lr'] = lr
         if printout:
             print('Updating learning rate to {}'.format(lr))
-            
+
+def visual(true, preds=None, name='./pic/test.pdf'):
+    """
+    Results visualization
+    """
+    plt.figure()
+    plt.plot(true, label='GroundTruth', linewidth=2)
+    if preds is not None:
+        plt.plot(preds, label='Prediction', linewidth=2)
+    plt.legend()
+    plt.savefig(name, bbox_inches='tight')
+    
 class EarlyStopping:
     def __init__(self, patience=7, verbose=False, delta=0):
         self.patience = patience

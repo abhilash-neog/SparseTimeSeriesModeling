@@ -7,6 +7,7 @@ FINETUNE_EPOCHS=10
 DEVICE=$1
 db=$2
 STATS=$3
+STUDY_NAME=$4
 
 pred_len=720
 OUTPUT_PATH="./outputs/ETTm1/"
@@ -34,4 +35,5 @@ python -u executor.py \
     --project_name ett \
     --pretrain_checkpoints_dir $PRETRAIN_CKPT_DIR \
     --db $db \
-    --stats_file $STATS
+    --stats_file $STATS \
+    --study_name $STUDY_NAME

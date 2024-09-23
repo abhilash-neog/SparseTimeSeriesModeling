@@ -356,14 +356,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
                 preds.append(pred)
                 # trues.append(true)
-                if i % 100 == 0:
-                    input = batch_x.detach().cpu().numpy()
-                    if test_data.scale and self.args.inverse:
-                        shape = input.shape
-                        input = test_data.inverse_transform(input.squeeze(0)).reshape(shape)
-                    gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
-                    pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
-                    visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
             
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader_gt):
                 # batch_x = batch_x.float().to(self.device)
@@ -374,6 +366,15 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 true = batch_y.detach().cpu().numpy()
                 
                 trues.append(true)
+                
+                if i % 100 == 0:
+                    input = batch_x.detach().cpu().numpy()
+                    if test_data.scale and self.args.inverse:
+                        shape = input.shape
+                        input = test_data.inverse_transform(input.squeeze(0)).reshape(shape)
+                    gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
+                    pd = np.concatenate((input[0, :, -1], preds[i][0, :, -1]), axis=0)
+                    visual(gt, pd, os.path.join(folder_path, str(self.args.pred_len) + "_" + str(i) + '.pdf'))
 
         preds = np.array(preds)
         trues = np.array(trues)

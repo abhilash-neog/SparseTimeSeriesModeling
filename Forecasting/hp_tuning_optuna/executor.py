@@ -99,6 +99,7 @@ parser.add_argument('--fc_dropout_range', type=float, nargs='+', default=[0.0, 0
 parser.add_argument('--device', type=str, default='3', help='cuda device')
 parser.add_argument('--db', type=str, default='db.sqlite3', help='db file')
 parser.add_argument('--stats_file', type=str, default='study_stats.txt', help='output stats file')
+parser.add_argument('--study_name', type=str, default='h1tuning', help='name of the study')
 
 # weights and biases
 parser.add_argument('--project_name', type=str, default='ett', help='project name in wandb')
@@ -123,6 +124,9 @@ read and process data
 dh = DataHandler(args) 
 utils = dh.handle()
 
+base_pretrain_run_name = args.pretrain_run_name
+base_finetune_run_name = args.finetune_run_name
+
 def objective(trial):
     '''
     Pretrain
@@ -132,10 +136,9 @@ def objective(trial):
 
     trainer = Trainer(args=vars(args), model=model, utils=utils)
     
-    base_run_name = args.pretrain_run_name
-    args.pretrain_run_name = "{}_{}_{}".format(args.pretrain_run_name, str(datetime.datetime.now().date()), str(datetime.datetime.now().time()))
+    args.pretrain_run_name = "{}_{}_{}".format(base_pretrain_run_name, str(datetime.datetime.now().date()), str(datetime.datetime.now().time()))
 
-    args.pretrain_checkpoints_dir = os.path.join(args.pretrain_checkpoints_dir, base_run_name) 
+    args.pretrain_checkpoints_dir = os.path.join(args.pretrain_checkpoints_dir, base_pretrain_run_name) 
 
     if not os.path.exists(args.pretrain_checkpoints_dir):
         os.makedirs(args.pretrain_checkpoints_dir)
@@ -148,10 +151,10 @@ def objective(trial):
     Finetune
     '''
     args.task_name='finetune'
-    base_run_name = args.finetune_run_name
-    args.finetune_run_name = "{}_{}_{}".format(args.finetune_run_name, str(datetime.datetime.now().date()), str(datetime.datetime.now().time()))
+    
+    args.finetune_run_name = "{}_{}_{}".format(base_finetune_run_name, str(datetime.datetime.now().date()), str(datetime.datetime.now().time()))
 
-    args.finetune_checkpoints_dir = os.path.join(args.finetune_checkpoints_dir, base_run_name) 
+    args.finetune_checkpoints_dir = os.path.join(args.finetune_checkpoints_dir, base_finetune_run_name) 
 
     if not os.path.exists(args.finetune_checkpoints_dir):
         os.makedirs(args.finetune_checkpoints_dir)
@@ -171,7 +174,14 @@ def objective(trial):
     return val_mse
     
 
-study = optuna.create_study(storage="sqlite:///"+args.db, sampler=RandomSampler(seed=args.seed), study_name='h1tuning', direction="minimize")
+# Load the study if it exists, otherwise create a new one
+try:
+    study = optuna.load_study(study_name=args.study_name, storage="sqlite:///"+args.db)
+except:
+    print(f"No previous study found")
+    print(f"Creating a new study")
+    study = optuna.create_study(storage="sqlite:///"+args.db, sampler=RandomSampler(seed=args.seed), study_name=args.study_name, direction="minimize")
+    
 study.optimize(objective, n_trials=50)
 
 pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])

@@ -1,6 +1,8 @@
 import sys
 sys.path.insert(1, './utils/.')
 
+import optuna
+from optuna.trial import TrialState
 import math
 import torch
 import numpy as np
@@ -170,7 +172,8 @@ class Trainer():
 
             if not math.isfinite(loss_value):
                 print("Loss is {}, stopping training".format(loss_value))
-                sys.exit(1)
+                # sys.exit(1)
+                break
 
             del samples
             del masks
@@ -221,9 +224,10 @@ class Trainer():
             batch_loss += loss_value
 
             if not math.isfinite(loss_value):
-                print("Loss is {}, stopping training".format(loss_value))
-                sys.exit(1)
-
+                print("Loss is {}, stopping training epoch".format(loss_value))
+                # sys.exit(1)
+                break
+                
             loss /= self.accum_iter
             
             loss.backward()
@@ -442,7 +446,8 @@ class Trainer():
 
                     if not math.isfinite(loss_value):
                         print("Loss is {}, stopping training".format(loss_value))
-                        sys.exit(1)
+                        # sys.exit(1)
+                        break
 
                     loss /= self.accum_iter
 
