@@ -18,13 +18,13 @@ TRIAL=$3
 MASKINGTYPE=$4
 
 # GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
-CHECKPOINT="/projects/ml4science/time_series/DLinear/SAITS/checkpoints/"
+CHECKPOINT="/projects/ml4science/time_series/DLinear/Spline/checkpoints/"
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
 root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTh1/"
-data_path_name="v${TRIAL}_${MASKINGTYPE}_etth1_imputed_SAITS.csv"
+data_path_name="v${TRIAL}_${MASKINGTYPE}_etth1_imputed.csv"
 
-OUTPUT_PATH="/projects/ml4science/time_series/DLinear/outputs/SAITS/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/DLinear/outputs/Spline/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
 
 seq_len=336
 

@@ -18,13 +18,13 @@ TRIAL=$3
 MASKINGTYPE=$4
 
 # GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
-CHECKPOINT="/projects/ml4science/time_series/DLinear/SAITS/checkpoints/"
+CHECKPOINT="/projects/ml4science/time_series/DLinear/Spline/checkpoints/"
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
-root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTh1/"
-data_path_name="v${TRIAL}_${MASKINGTYPE}_etth1_imputed_SAITS.csv"
+root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTm1/"
+data_path_name="v${TRIAL}_${MASKINGTYPE}_ettm1_imputed.csv"
 
-OUTPUT_PATH="/projects/ml4science/time_series/DLinear/outputs/SAITS/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/DLinear/outputs/Spline/${MASKINGTYPE}/ETTm1_v${TRIAL}/"
 
 seq_len=336
 
@@ -36,10 +36,10 @@ for id in $ROOT_PATHS; do
         --root_path $root_path \
         --data_path $data_path_name \
         --gt_root_path $GT_ROOT_PATH \
-        --gt_data_path ETTh1.csv \
-        --model_id "ETTh1_${seq_len}_${pred_len}" \
+        --gt_data_path ETTm1.csv \
+        --model_id "ETTm1_${seq_len}_${pred_len}" \
         --model DLinear \
-        --data ETTh1 \
+        --data ETTm1 \
         --features M \
         --seq_len $seq_len \
         --pred_len $pred_len \
@@ -47,6 +47,7 @@ for id in $ROOT_PATHS; do
         --des 'Exp' \
         --itr 1 \
         --batch_size 8 \
+        --learning_rate 0.0001 \
         --gpu $DEVICES \
         --trial $TRIAL \
         --checkpoints $CHECKPOINT \
