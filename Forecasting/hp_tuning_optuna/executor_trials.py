@@ -73,12 +73,12 @@ parser.add_argument('--lradj', type=str, default='type1', help='adjust learning 
 parser.add_argument('--output_path', type=str, default='', help='path where all output are stored')
 
 # model define
-parser.add_argument('--encoder_embed_range', type=int, nargs='+', default=[4,8, 16, 32, 64, 128, 256], help='encoder embedding dimension in the feature space')
+parser.add_argument('--encoder_embed_range', type=int, nargs='+', default=[4, 8, 16, 32, 64], help='encoder embedding dimension in the feature space')
 parser.add_argument('--encoder_depth_range', type=int, nargs='+', default=[1,2,3,4], help='number of encoder blocks')
-parser.add_argument('--encoder_heads_range', type=int, nargs='+', default=[1,4,8,16,32,64], help='number of encoder multi-attention heads')
-parser.add_argument('--decoder_embed_range', type=int, nargs='+', default=[4,8, 16, 32, 64, 128, 256], help='decoder embedding dimension in the feature space')
+parser.add_argument('--encoder_heads_range', type=int, nargs='+', default=[1,4,8,16,32], help='number of encoder multi-attention heads')
+parser.add_argument('--decoder_embed_range', type=int, nargs='+', default=[4,8, 16, 32, 64], help='decoder embedding dimension in the feature space')
 parser.add_argument('--decoder_depth_range', type=int, nargs='+', default=[1,2,3,4], help='number of decoder blocks')
-parser.add_argument('--decoder_heads_range', type=int, nargs='+', default=[1,4,8,16,32,64], help='number of decoder multi-attention heads')
+parser.add_argument('--decoder_heads_range', type=int, nargs='+', default=[1,4,8,16,32], help='number of decoder multi-attention heads')
 parser.add_argument('--mlp_ratio', type=int, default=4, help='mlp ratio for vision transformer')
 
 # training 
@@ -86,8 +86,10 @@ parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--accum_iter', type=int, default=1, help='accumulation iteration for gradient accumulation')
 parser.add_argument('--min_lr', type=float, default=1e-5, help='min learning rate')
 parser.add_argument('--weight_decay', type=float, default=0.001)
-parser.add_argument('--lr', type=float, default=0.0001)
+parser.add_argument('--pretrain_lr', type=float, default=0.0001)
+parser.add_argument('--finetune_lr', type=float, default=0.0001)
 parser.add_argument('--blr', type=float, default=1e-4, help='base learning rate')
+parser.add_argument('--lr', type=float, default=1e-4, help='filler')
 parser.add_argument('--warmup_epochs', type=int, default=5, help='number of warmup epochs for learning rate')
 parser.add_argument('--pretrain_epochs', type=int, default=50)
 parser.add_argument('--finetune_epochs', type=int, default=10)
@@ -100,6 +102,7 @@ parser.add_argument('--device', type=str, default='3', help='cuda device')
 parser.add_argument('--db', type=str, default='db.sqlite3', help='db file')
 parser.add_argument('--stats_file', type=str, default='study_stats.txt', help='output stats file')
 parser.add_argument('--study_name', type=str, default='h1tuning', help='name of the study')
+parser.add_argument('--ntrials', type=int, default=10, help='number of trials')
 
 # weights and biases
 parser.add_argument('--project_name', type=str, default='ett', help='project name in wandb')
@@ -132,6 +135,8 @@ def objective(trial):
     Pretrain
     '''
     args.task_name='pretrain'
+    args.lr = args.pretrain_lr
+    
     model = MaskedAutoencoder(utils, args, trial, num_feats=len(dh.handler.features_col))
 
     trainer = Trainer(args=vars(args), model=model, utils=utils)
@@ -151,6 +156,7 @@ def objective(trial):
     Finetune
     '''
     args.task_name='finetune'
+    args.lr = args.finetune_lr
     
     args.finetune_run_name = "{}_{}_{}".format(base_finetune_run_name, str(datetime.datetime.now().date()), str(datetime.datetime.now().time()))
 
@@ -184,7 +190,7 @@ except:
     print(f"Creating a new study")
     study = optuna.create_study(storage="sqlite:///"+args.db, sampler=RandomSampler(seed=args.seed), study_name=args.study_name, direction="minimize")
     
-study.optimize(objective, n_trials=50)
+study.optimize(objective, n_trials=args.ntrials)
 
 pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
 complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])

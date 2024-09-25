@@ -65,7 +65,7 @@ for id in $ROOT_PATHS; do
             --lr 0.0001 \
             --dropout 0.05 \
             --fc_dropout 0.0 \
-            --batch_size 16 \
+            --batch_size 32 \
             --project_name ett_masking \
             --output_path $OUTPUT_PATH \
             --trial $TRIAL
