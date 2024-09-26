@@ -1,14 +1,7 @@
-from data_provider.data_loader import Dataset_ETT_hour, Dataset_ETT_minute, Dataset_Custom, Dataset_Pred, Dataset_Lake
+from data_provider.data_loader import Dataset_Lake
 from torch.utils.data import DataLoader
 
 data_dict = {
-    'ETTh1': Dataset_ETT_hour,
-    'ETTh2': Dataset_ETT_hour,
-    'ETTm1': Dataset_ETT_minute,
-    'ETTm2': Dataset_ETT_minute,
-    'weather': Dataset_Custom,
-    'traffic': Dataset_Custom,
-    'electricity': Dataset_Custom,
     'Lake': Dataset_Lake
 }
 
@@ -33,14 +26,14 @@ def data_provider(args, flag, gt=None):
         drop_last = True
         batch_size = args.batch_size
         freq = args.freq
-    
+
     if gt is not None:
         root_path=args.gt_root_path
         data_path=args.gt_data_path
     else:
         root_path=args.root_path
         data_path=args.data_path
-            
+        
     data_set = Data(
         root_path=root_path,
         data_path=data_path,

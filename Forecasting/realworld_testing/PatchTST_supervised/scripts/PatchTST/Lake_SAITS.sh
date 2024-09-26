@@ -11,7 +11,7 @@ model_name=PatchTST
 GT_ROOT_PATH="/raid/sepideh/Project_MissTSM/FCR/"
 root_path_name="/raid/sepideh/Project_MissTSM/FCR/"
 data_path_name="FCR_SAITS.csv"
-gt_data_path_name="df_FCR_missing.csv"
+gt_data_path_name="FCR_missing.csv"
 
 model_id_name=Lake
 data_name=Lake
@@ -34,7 +34,7 @@ for pred_len in 7 14 21; do
         --data $data_name \
         --seq_len $seq_len \
         --pred_len $pred_len \
-        --enc_in 7 \
+        --enc_in 15 \
         --e_layers 3 \
         --n_heads 4 \
         --d_model 16 \
@@ -46,7 +46,6 @@ for pred_len in 7 14 21; do
         --stride 8\
         --des 'Exp' \
         --gpu $DEVICES \
-        --train_epochs 1\
         --itr 1 \
         --batch_size 8 \
         --learning_rate 0.0001 \

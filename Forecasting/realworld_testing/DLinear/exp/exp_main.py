@@ -1,6 +1,6 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
-from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST
+from models import Informer, Autoformer, Transformer, DLinear
 from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop
 from utils.metrics import metric
 
@@ -8,7 +8,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import optim
-from torch.optim import lr_scheduler 
 
 import os
 import time
@@ -29,9 +28,6 @@ class Exp_Main(Exp_Basic):
             'Transformer': Transformer,
             'Informer': Informer,
             'DLinear': DLinear,
-            'NLinear': NLinear,
-            'Linear': Linear,
-            'PatchTST': PatchTST,
         }
         model = model_dict[self.args.model].Model(self.args).float()
 
@@ -68,7 +64,7 @@ class Exp_Main(Exp_Basic):
                 # encoder - decoder
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        if 'Linear' in self.args.model or 'TST' in self.args.model:
+                        if 'DLinear' in self.args.model:
                             outputs = self.model(batch_x)
                         else:
                             if self.args.output_attention:
@@ -76,7 +72,7 @@ class Exp_Main(Exp_Basic):
                             else:
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 else:
-                    if 'Linear' in self.args.model or 'TST' in self.args.model:
+                    if 'DLinear' in self.args.model:
                         outputs = self.model(batch_x)
                     else:
                         if self.args.output_attention:
@@ -101,8 +97,7 @@ class Exp_Main(Exp_Basic):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
-        
-        # path = os.path.join(self.args.checkpoints, self.args.data + "_" + str(self.args.pred_len))
+
         path = os.path.join(self.args.checkpoints, self.args.data + "_" + str(self.args.pred_len)) + "_" + str(self.args.trial)
         if not os.path.exists(path):
             os.makedirs(path)
@@ -121,12 +116,6 @@ class Exp_Main(Exp_Basic):
 
         if self.args.use_amp:
             scaler = torch.cuda.amp.GradScaler()
-            
-        scheduler = lr_scheduler.OneCycleLR(optimizer = model_optim,
-                                            steps_per_epoch = train_steps,
-                                            pct_start = self.args.pct_start,
-                                            epochs = self.args.train_epochs,
-                                            max_lr = self.args.learning_rate)
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0
@@ -135,8 +124,6 @@ class Exp_Main(Exp_Basic):
             self.model.train()
             epoch_time = time.time()
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(train_loader):
-                # print(batch_x.shape)
-                # exit(0)
                 iter_count += 1
                 model_optim.zero_grad()
                 batch_x = batch_x.float().to(self.device)
@@ -152,7 +139,7 @@ class Exp_Main(Exp_Basic):
                 # encoder - decoder
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        if 'Linear' in self.args.model or 'TST' in self.args.model:
+                        if 'DLinear' in self.args.model:
                             outputs = self.model(batch_x)
                         else:
                             if self.args.output_attention:
@@ -166,7 +153,7 @@ class Exp_Main(Exp_Basic):
                         loss = criterion(outputs, batch_y)
                         train_loss.append(loss.item())
                 else:
-                    if 'Linear' in self.args.model or 'TST' in self.args.model:
+                    if 'DLinear' in self.args.model:
                             outputs = self.model(batch_x)
                     else:
                         if self.args.output_attention:
@@ -196,10 +183,6 @@ class Exp_Main(Exp_Basic):
                 else:
                     loss.backward()
                     model_optim.step()
-                    
-                if self.args.lradj == 'TST':
-                    adjust_learning_rate(model_optim, scheduler, epoch + 1, self.args, printout=False)
-                    scheduler.step()
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
@@ -213,14 +196,11 @@ class Exp_Main(Exp_Basic):
                 print("Early stopping")
                 break
 
-            if self.args.lradj != 'TST':
-                adjust_learning_rate(model_optim, scheduler, epoch + 1, self.args)
-            else:
-                print('Updating learning rate to {}'.format(scheduler.get_last_lr()[0]))
+            adjust_learning_rate(model_optim, epoch + 1, self.args)
 
         # best_model_path = path + '/' + 'checkpoint.pth'
         best_model_path = path + '/' + 'checkpoint_'+self.args.root_path.split('/')[-1]+'.pth'
-        self.model.load_state_dict(torch.load(best_model_path))
+        self.model.load_state_dict(torch.load(best_model_path, map_location='cpu'))
 
         return self.model
 
@@ -230,7 +210,6 @@ class Exp_Main(Exp_Basic):
         if test:
             print('loading model')
             path = os.path.join(self.args.checkpoints, self.args.data + "_" + str(self.args.pred_len)) + "_" + str(self.args.trial)
-            # path = os.path.join(self.args.checkpoints, self.args.data + "_" + str(self.args.pred_len))
             best_model_path = path + '/' + 'checkpoint_'+self.args.root_path.split('/')[-1]+'.pth'
             self.model.load_state_dict(torch.load(best_model_path))
             # self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
@@ -238,10 +217,10 @@ class Exp_Main(Exp_Basic):
         preds = []
         trues = []
         inputx = []
-#         folder_path = './test_results/' + setting + '/'
-#         if not os.path.exists(folder_path):
-#             os.makedirs(folder_path)
-            
+        # folder_path = './test_results/' + setting + '/'
+        # if not os.path.exists(folder_path):
+        #     os.makedirs(folder_path)
+        
         folder_path = self.args.output_path
         print(folder_path)
         if not os.path.exists(folder_path):
@@ -262,7 +241,7 @@ class Exp_Main(Exp_Basic):
                 # encoder - decoder
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        if 'Linear' in self.args.model or 'TST' in self.args.model:
+                        if 'DLinear' in self.args.model:
                             outputs = self.model(batch_x)
                         else:
                             if self.args.output_attention:
@@ -270,7 +249,7 @@ class Exp_Main(Exp_Basic):
                             else:
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 else:
-                    if 'Linear' in self.args.model or 'TST' in self.args.model:
+                    if 'DLinear' in self.args.model:
                             outputs = self.model(batch_x)
                     else:
                         if self.args.output_attention:
@@ -325,7 +304,7 @@ class Exp_Main(Exp_Basic):
         f.close()
 
         # np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe,rse, corr]))
-        np.save(folder_path + 'pred.npy', preds)
+        # np.save(folder_path + 'pred.npy', preds)
         # np.save(folder_path + 'true.npy', trues)
         # np.save(folder_path + 'x.npy', inputx)
         return
@@ -338,15 +317,16 @@ class Exp_Main(Exp_Basic):
             print('loading model')
             path = os.path.join(self.args.checkpoints, self.args.data + "_" + str(self.args.pred_len)) + "_" + str(self.args.trial)
             best_model_path = path + '/' + 'checkpoint_'+self.args.root_path.split('/')[-1]+'.pth'
-            self.model.load_state_dict(torch.load(best_model_path))#os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
+            self.model.load_state_dict(torch.load(best_model_path))
+            # self.model.load_state_dict(torch.load(os.path.join('./checkpoints/' + setting, 'checkpoint.pth')))
 
         preds = []
         trues = []
         inputx = []
-#         folder_path = './test_results/' + setting + '/'
-#         if not os.path.exists(folder_path):
-#             os.makedirs(folder_path)
-            
+        # folder_path = './test_results/' + setting + '/'
+        # if not os.path.exists(folder_path):
+        #     os.makedirs(folder_path)
+        
         folder_path = self.args.output_path
         print(folder_path)
         if not os.path.exists(folder_path):
@@ -367,7 +347,7 @@ class Exp_Main(Exp_Basic):
                 # encoder - decoder
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        if 'Linear' in self.args.model or 'TST' in self.args.model:
+                        if 'DLinear' in self.args.model:
                             outputs = self.model(batch_x)
                         else:
                             if self.args.output_attention:
@@ -375,7 +355,7 @@ class Exp_Main(Exp_Basic):
                             else:
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 else:
-                    if 'Linear' in self.args.model or 'TST' in self.args.model:
+                    if 'DLinear' in self.args.model:
                             outputs = self.model(batch_x)
                     else:
                         if self.args.output_attention:
@@ -388,21 +368,25 @@ class Exp_Main(Exp_Basic):
                 # print(outputs.shape,batch_y.shape)
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
-                
                 outputs = outputs.detach().cpu().numpy()
                 batch_y = batch_y.detach().cpu().numpy()
-                
-                pred = outputs
+
+                pred = outputs  # outputs.detach().cpu().numpy()  # .squeeze()
+                true = batch_y  # batch_y.detach().cpu().numpy()  # .squeeze()
+
                 preds.append(pred)
+                # trues.append(true)
                 inputx.append(batch_x.detach().cpu().numpy())
+                
             
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader_gt):
-                # print(f"batch_y = {batch_y[0, :, -1]}")
+                # batch_x = batch_x.float().to(self.device)
+                # batch_y = batch_y.float().to(self.device)
+                
                 f_dim = -1 if self.args.features == 'MS' else 0
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
                 true = batch_y.detach().cpu().numpy()
                 trues.append(true)
-
                 if i % 2 == 0:
                     input = batch_x.detach().cpu().numpy()
                     gt = np.concatenate((inputx[i][0, :, -1], trues[i][0, :, -1]), axis=0)
@@ -424,22 +408,24 @@ class Exp_Main(Exp_Basic):
         # folder_path = './results/' + setting + '/'
         # if not os.path.exists(folder_path):
         #     os.makedirs(folder_path)
+
         mae, mse, rmse, mape, mspe, rse, corr = metric(preds, trues)
-        print('mse:{}, mae:{}, rmse:{}'.format(mse, mae, rmse))
+        print('mse:{}, mae:{}, rmse:{}'.format(mse, mae, rse))
         # f = open("result.txt", 'a')
         f = open(folder_path+"result_"+self.args.root_path.split('/')[-1]+".txt", 'a')
         f.write(setting + "  \n")
-        f.write('mse:{}, mae:{}, rmse:{}'.format(mse, mae, rmse))
+        f.write('mse:{}, mae:{}, rmse:{}'.format(mse, mae, rse))
         f.write('\n')
         f.write('\n')
         f.close()
 
         # np.save(folder_path + 'metrics.npy', np.array([mae, mse, rmse, mape, mspe,rse, corr]))
-        np.save(folder_path + 'pred.npy', preds)
+        # np.save(folder_path + 'pred.npy', preds)
         # np.save(folder_path + 'true.npy', trues)
         # np.save(folder_path + 'x.npy', inputx)
         return
-
+    
+    
     def predict(self, setting, load=False):
         pred_data, pred_loader = self._get_data(flag='pred')
 
@@ -455,7 +441,6 @@ class Exp_Main(Exp_Basic):
         print(folder_path)
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
-
         self.model.eval()
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(pred_loader):
@@ -470,7 +455,7 @@ class Exp_Main(Exp_Basic):
                 # encoder - decoder
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        if 'Linear' in self.args.model or 'TST' in self.args.model:
+                        if 'DLinear' in self.args.model:
                             outputs = self.model(batch_x)
                         else:
                             if self.args.output_attention:
@@ -478,7 +463,7 @@ class Exp_Main(Exp_Basic):
                             else:
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 else:
-                    if 'Linear' in self.args.model or 'TST' in self.args.model:
+                    if 'DLinear' in self.args.model:
                         outputs = self.model(batch_x)
                     else:
                         if self.args.output_attention:
@@ -496,6 +481,6 @@ class Exp_Main(Exp_Basic):
         # if not os.path.exists(folder_path):
         #     os.makedirs(folder_path)
 
-        np.save(folder_path + 'real_prediction.npy', preds)
+        # np.save(folder_path + 'real_prediction.npy', preds)
 
         return
