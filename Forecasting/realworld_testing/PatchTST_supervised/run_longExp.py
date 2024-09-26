@@ -6,7 +6,11 @@ import random
 import numpy as np
 
 
-# if __name__ == '__main__':
+fix_seed = 2023
+random.seed(fix_seed)
+torch.manual_seed(fix_seed)
+np.random.seed(fix_seed)
+
 parser = argparse.ArgumentParser(description='Autoformer & Transformer family for Time Series Forecasting')
 
 # random seed
@@ -19,9 +23,9 @@ parser.add_argument('--model', type=str, required=True, default='Autoformer',
                     help='model name, options: [Autoformer, Informer, Transformer]')
 
 # data loader
-parser.add_argument('--data', type=str, required=True, default='ETTm1', help='dataset type')
+parser.add_argument('--data', type=str, required=True, default='FCR', help='dataset type')
 parser.add_argument('--root_path', type=str, default='./datasets', help='root path of the data file')
-parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
+parser.add_argument('--data_path', type=str, default='FCR.csv', help='data file')
 
 parser.add_argument('--gt_root_path', type=str, default='', help='root path of the ground-truth file')
 parser.add_argument('--gt_data_path', type=str, default='', help='gt data file')
@@ -33,7 +37,7 @@ parser.add_argument('--target', type=str, default='OT', help='target feature in 
 parser.add_argument('--freq', type=str, default='h',
                     help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
 parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
-parser.add_argument('--output_path', type=str, required=True, default='')
+parser.add_argument('--output_path', type=str, default='./outputs/')
 
 # forecasting task
 parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')

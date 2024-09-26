@@ -439,7 +439,7 @@ class Dataset_Lake(Dataset):
         cols.remove('Date')
         df_raw = df_raw[['Date'] + cols + [self.target]]
         # print(cols)
-        num_train = int(len(df_raw) * 0.7)
+        num_train = int(len(df_raw) * 0.6)
         num_test = int(len(df_raw) * 0.2)
         num_vali = len(df_raw) - num_train - num_test
 
