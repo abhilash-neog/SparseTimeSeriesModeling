@@ -7,15 +7,17 @@ data_path_name="FCR_SAITS.csv"
 gt_data_path_name="FCR_missing.csv"
 
 CHECKPOINT="./model_checkpoints/"
-OUTPUT_PATH="./outputs/Lake_v${TRIAL}/"
+OUTPUT_PATH="./outputs/FCR_v${TRIAL}/"
 
 data_name=Lake
 seq_len=21
-
-for pred_len in 7 14 21; do
+cd ../../..
+for pred_len in 7; do
     python -u run_longExp.py \
-      --is_training 1 \
       --target 'daily_median_chla_interp_ugL' \
+      --freq d \
+      --label_len 7 \
+      --is_training 1 \
       --root_path $root_path_name \
       --data_path $data_path_name \
       --gt_root_path $GT_ROOT_PATH \
@@ -27,6 +29,11 @@ for pred_len in 7 14 21; do
       --seq_len $seq_len \
       --pred_len $pred_len \
       --enc_in 15 \
+      --e_layers 3 \
+      --n_heads 4 \
+      --d_model 16 \
+      --d_ff 128 \
+      --dropout 0.3\
       --des 'Exp' \
       --itr 1 \
       --gpu $DEVICES \
