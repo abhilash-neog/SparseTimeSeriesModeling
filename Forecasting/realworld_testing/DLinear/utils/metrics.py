@@ -15,6 +15,7 @@ def CORR(pred, true):
 # def MAE(pred, true):
 #     return np.mean(np.abs(pred - true))
 def MAE(pred, true):
+
     mask = ~np.isnan(true)
     pred_filtered = pred[mask]
     true_filtered = true[mask]
@@ -28,6 +29,7 @@ def MSE(pred, true):
     mask = ~np.isnan(true)
     pred_filtered = pred[mask]
     true_filtered = true[mask]
+    
     return np.mean((pred_filtered - true_filtered) ** 2)
 
 def RMSE(pred, true):

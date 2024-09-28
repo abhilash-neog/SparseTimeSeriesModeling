@@ -14,7 +14,7 @@ seq_len=21
 cd ../../..
 for pred_len in 7; do
     python -u run_longExp.py \
-      --target 'daily_median_chla_interp_ugL' \
+      --target 'daily_median_watertemp_interp_degC' 'daily_median_chla_interp_ugL'\
       --freq d \
       --label_len 7 \
       --is_training 1 \
@@ -25,7 +25,7 @@ for pred_len in 7; do
       --model_id $data_name_$seq_len'_'$pred_len \
       --model DLinear \
       --data $data_name \
-      --features M \
+      --features MD \
       --seq_len $seq_len \
       --pred_len $pred_len \
       --enc_in 15 \
@@ -39,7 +39,7 @@ for pred_len in 7; do
       --gpu $DEVICES \
       --batch_size 8 \
       --trial $TRIAL \
-      --train_epochs 1\
+      --train_epochs 100\
       --learning_rate 0.05 \
       --checkpoints $CHECKPOINT \
       --output_path $OUTPUT_PATH

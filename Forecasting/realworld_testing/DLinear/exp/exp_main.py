@@ -79,7 +79,12 @@ class Exp_Main(Exp_Basic):
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                         else:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-                f_dim = -1 if self.args.features == 'MS' else 0
+                if self.args.features == 'MS':
+                    f_dim = -1
+                elif self.args.features == 'MD':
+                    f_dim = -2
+                else:
+                    f_dim = 0
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
 
@@ -147,7 +152,12 @@ class Exp_Main(Exp_Basic):
                             else:
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
 
-                        f_dim = -1 if self.args.features == 'MS' else 0
+                        if self.args.features == 'MS':
+                            f_dim = -1
+                        elif self.args.features == 'MD':
+                            f_dim = -2
+                        else:
+                            f_dim = 0
                         outputs = outputs[:, -self.args.pred_len:, f_dim:]
                         batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
                         loss = criterion(outputs, batch_y)
@@ -162,7 +172,12 @@ class Exp_Main(Exp_Basic):
                         else:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark, batch_y)
                     # print(outputs.shape,batch_y.shape)
-                    f_dim = -1 if self.args.features == 'MS' else 0
+                    if self.args.features == 'MS':
+                        f_dim = -1
+                    elif self.args.features == 'MD':
+                        f_dim = -2
+                    else:
+                        f_dim = 0
                     outputs = outputs[:, -self.args.pred_len:, f_dim:]
                     batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
                     loss = criterion(outputs, batch_y)
@@ -258,7 +273,12 @@ class Exp_Main(Exp_Basic):
                         else:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
 
-                f_dim = -1 if self.args.features == 'MS' else 0
+                if self.args.features == 'MS':
+                    f_dim = -1
+                elif self.args.features == 'MD':
+                    f_dim = -2
+                else:
+                    f_dim = 0
                 # print(outputs.shape,batch_y.shape)
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
@@ -364,13 +384,20 @@ class Exp_Main(Exp_Basic):
                         else:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
 
-                f_dim = -1 if self.args.features == 'MS' else 0
+                if self.args.features == 'MS':
+                    f_dim = -1
+                elif self.args.features == 'MD':
+                    f_dim = -2
+                else:
+                    f_dim = 0
                 # print(outputs.shape,batch_y.shape)
+                
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
                 outputs = outputs.detach().cpu().numpy()
                 batch_y = batch_y.detach().cpu().numpy()
-
+                
+                # exit(0)
                 pred = outputs  # outputs.detach().cpu().numpy()  # .squeeze()
                 true = batch_y  # batch_y.detach().cpu().numpy()  # .squeeze()
 
@@ -383,7 +410,12 @@ class Exp_Main(Exp_Basic):
                 # batch_x = batch_x.float().to(self.device)
                 # batch_y = batch_y.float().to(self.device)
                 
-                f_dim = -1 if self.args.features == 'MS' else 0
+                if self.args.features == 'MS':
+                    f_dim = -1
+                elif self.args.features == 'MD':
+                    f_dim = -2
+                else:
+                    f_dim = 0
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
                 true = batch_y.detach().cpu().numpy()
                 trues.append(true)
@@ -399,7 +431,6 @@ class Exp_Main(Exp_Basic):
         preds = np.array(preds)
         trues = np.array(trues)
         inputx = np.array(inputx)
-
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
         inputx = inputx.reshape(-1, inputx.shape[-2], inputx.shape[-1])
@@ -410,11 +441,11 @@ class Exp_Main(Exp_Basic):
         #     os.makedirs(folder_path)
 
         mae, mse, rmse, mape, mspe, rse, corr = metric(preds, trues)
-        print('mse:{}, mae:{}, rmse:{}'.format(mse, mae, rse))
+        print('mse:{}, mae:{}, rmse:{}'.format(mse, mae, rmse))
         # f = open("result.txt", 'a')
         f = open(folder_path+"result_"+self.args.root_path.split('/')[-1]+".txt", 'a')
         f.write(setting + "  \n")
-        f.write('mse:{}, mae:{}, rmse:{}'.format(mse, mae, rse))
+        f.write('mse:{}, mae:{}, rmse:{}'.format(mse, mae, rmse))
         f.write('\n')
         f.write('\n')
         f.close()
