@@ -9,7 +9,8 @@ data_dict = {
     'weather': Dataset_Custom,
     'traffic': Dataset_Custom,
     'electricity': Dataset_Custom,
-    'Lake': Dataset_Lake
+    'Lake': Dataset_Lake,
+    'Mendota': Dataset_Lake
 }
 
 

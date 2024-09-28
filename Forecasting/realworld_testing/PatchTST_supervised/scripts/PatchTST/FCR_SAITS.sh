@@ -1,7 +1,7 @@
 DEVICES=$1
 TRIAL=$2
 
-OUTPUT_PATH="./outputs/Lake_v${TRIAL}/"
+OUTPUT_PATH="./outputs/FCR_v${TRIAL}/"
 
 CHECKPOINT="./ckpts/"
 

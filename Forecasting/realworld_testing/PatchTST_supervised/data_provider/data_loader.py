@@ -406,7 +406,6 @@ class Dataset_Lake(Dataset):
             self.label_len = 24 * 4
             self.pred_len = 24 * 4
         else:
-            # print(f'size: {size}')
             self.seq_len = size[0]
             self.label_len = size[1]
             self.pred_len = size[2]
@@ -434,11 +433,9 @@ class Dataset_Lake(Dataset):
         df_raw.columns: ['date', ...(other features), target feature]
         '''
         cols = list(df_raw.columns)
-        # print(f'columns are: {cols}')
         cols.remove(self.target)
-        cols.remove('Date')
-        df_raw = df_raw[['Date'] + cols + [self.target]]
-        # print(cols)
+        cols.remove('date')
+        df_raw = df_raw[['date'] + cols + [self.target]]
         num_train = int(len(df_raw) * 0.6)
         num_test = int(len(df_raw) * 0.2)
         num_vali = len(df_raw) - num_train - num_test
@@ -457,24 +454,23 @@ class Dataset_Lake(Dataset):
         if self.scale:
             train_data = df_data[border1s[0]:border2s[0]]
             self.scaler.fit(train_data.values)
-            # print(self.scaler.mean_)
-            # exit()
             data = self.scaler.transform(df_data.values)
         else:
             data = df_data.values
 
-        df_stamp = df_raw[['Date']][border1:border2]
-        df_stamp['Date'] = pd.to_datetime(df_stamp.Date)
+        df_stamp = df_raw[['date']][border1:border2]
+        df_stamp['date'] = pd.to_datetime(df_stamp.date)
         
         if self.timeenc == 0:
-            df_stamp['year'] = df_stamp.Date.apply(lambda row: row.year, 1)
-            df_stamp['month'] = df_stamp.Date.apply(lambda row: row.month, 1)
-            df_stamp['day'] = df_stamp.Date.apply(lambda row: row.day, 1)
-            df_stamp['weekday'] = df_stamp.Date.apply(lambda row: row.weekday(), 1)
+            
+            df_stamp['year'] = df_stamp.date.apply(lambda row: row.year, 1)
+            df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
+            df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
+            df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
             # df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
-            data_stamp = df_stamp.drop(['Date'], axis=1).values
+            data_stamp = df_stamp.drop(['date'], axis=1).values
         elif self.timeenc == 1:
-            data_stamp = time_features(pd.to_datetime(df_stamp['Date'].values), freq=self.freq)
+            data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0)
 
         self.data_x = data[border1:border2]

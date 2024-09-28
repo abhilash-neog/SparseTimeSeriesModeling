@@ -37,6 +37,8 @@ seq_len=21
 #     --dropout 0.05
 
 # FINETUNE WITH NON-FROZEN ENCODER
+
+cd ../..
 for pred_len in 7 14 21; do
     python -u executor.py \
         --task_name finetune \

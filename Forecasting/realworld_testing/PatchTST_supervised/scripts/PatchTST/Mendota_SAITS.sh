@@ -53,5 +53,4 @@ for pred_len in 7 14 21; do
         --checkpoints $CHECKPOINT \
         --output_path $OUTPUT_PATH \
         --trial $TRIAL \
-        --train_epochs 1
 done
