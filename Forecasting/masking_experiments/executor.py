@@ -204,6 +204,6 @@ elif args.task_name=='finetune':
     ft_model = torch.load(best_model_path, map_location='cpu').to(args.device)
     
     trainer.test(ft_model, flag='test')
-    trainer.test(ft_model, flag='val')
+    # trainer.test(ft_model, flag='val')
     
 print(f"Done with model {args.task_name} ")
