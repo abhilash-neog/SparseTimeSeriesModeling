@@ -12,8 +12,8 @@ source activate env
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.conda/envs/env/lib
 
 DATASET="ETTm2"
-PRETRAIN_EPOCHS=1
-FINETUNE_EPOCHS=1
+PRETRAIN_EPOCHS=50
+FINETUNE_EPOCHS=10
 
 BASE_PATH="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTm2/"
 ROOT_PATHS=$1
