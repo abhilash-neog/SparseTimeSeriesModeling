@@ -26,7 +26,7 @@ class ETTHour():
                              'test':0.2}
         self.args = args
 
-    def read_data(self):
+    def read_data(self, gt=None):
         
         if gt is not None:
             root_path=self.args.gt_root_path
@@ -75,7 +75,7 @@ class ETTMin():
                              'test':0.2}
         self.args = args
 
-    def read_data(self):
+    def read_data(self, gt=None):
         
         if gt is not None:
             root_path=self.args.gt_root_path
@@ -116,7 +116,67 @@ class ETTMin():
         df = df[self.features_col]
         df = pd.concat([df, df_date], axis=1)
         return df
+
+class Custom():
     
+    def __init__(self, args, target='OT'):
+        
+        self.split_ratios = {'train':0.7, 
+                             'val':0.1, 
+                             'test':0.2}
+        self.args = args
+        self.target = target
+        
+    def read_data(self, gt=None):
+        
+        if gt is not None:
+            root_path=self.args.gt_root_path
+            data_path=self.args.gt_source_filename
+        else:
+            root_path=self.args.root_path
+            data_path=self.args.source_filename
+        
+        filepath = os.path.join(root_path, data_path)
+        
+        df = pd.read_csv(filepath+'.csv')
+
+        self.features_col = df.columns[1:]
+        self.date_col = df.columns[0]
+        
+        cols = list(df.columns)
+        cols.remove(self.target)
+        cols.remove('date')
+        df = df[['date'] + cols + [self.target]]
+        
+        return df
+    
+    def add_time_feats(self, df):
+        '''
+        not using it correctly
+        '''
+        
+        df_date = df[[self.date_col]]
+        df_date[self.date_col] = pd.to_datetime(df_date[self.date_col])
+        
+        if self.args.timeenc==0:
+            df_date['month'] = df_date.date.apply(lambda row: row.month, 1)
+            df_date['day'] = df_date.date.apply(lambda row: row.day, 1)
+            df_date['weekday'] = df_date.date.apply(lambda row: row.weekday(), 1)
+            df_date['hour'] = df_date.date.apply(lambda row: row.hour, 1)
+            df_date['minute'] = df_date.date.apply(lambda row: row.minute, 1)
+            df_date['minute'] = df_date.minute.map(lambda x: x // 15)
+            df_date = df_date.drop(['date'], 1)
+        elif self.args.timeenc==1:
+            df_date = time_features(pd.to_datetime(df_date['date'].values), freq=self.args.freq)
+            df_date = df_date.transpose(1, 0)
+        else:
+            # No time features
+            return df[self.features_col]
+        
+        df = df[self.features_col]
+        df = pd.concat([df, df_date], axis=1)
+        return df
+
 class DataHandler():
     
     def __init__(self, args):
@@ -133,7 +193,7 @@ class DataHandler():
         else:
             self.dataClass = data_map[args.dataset]
             
-    def handle(self):
+    def handle(self, gt=None):
         
         self.handler = self.dataClass(self.args)
         
@@ -158,7 +218,7 @@ class DataHandler():
         '''
         create train and val set
         '''
-        train_df, val_df, test_df = utils.split_data(df_X, handler.split_ratios)
+        train_df, val_df, test_df = utils.split_data(df_X, self.handler.split_ratios)
         
         '''
         create windowed dataset or load one 

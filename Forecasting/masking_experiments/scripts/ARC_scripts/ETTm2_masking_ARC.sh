@@ -12,8 +12,8 @@ source activate env
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.conda/envs/env/lib
 
 DATASET="ETTm2"
-PRETRAIN_EPOCHS=50
-FINETUNE_EPOCHS=10
+PRETRAIN_EPOCHS=1
+FINETUNE_EPOCHS=1
 
 BASE_PATH="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTm2/"
 ROOT_PATHS=$1
@@ -22,15 +22,15 @@ MASKINGTYPE=$3
 PRED_LEN_LIST=$4
 DEVICE=0
 
-SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_ettm2.csv"
+SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_ettm2"
 
-GT_SOURCE_FILE="ETTm2.csv"
+GT_SOURCE_FILE="ETTm2"
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
-OUTPUT_PATH="/projects/ml4science/time_series/outputs_old_params/ettm2/${MASKINGTYPE}/"
+OUTPUT_PATH="/projects/ml4science/time_series/outputs_new/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
 
-PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/pretrain_checkpoints_old/"
-FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/finetune_checkpoints_old/"
+PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/pretrain_checkpoints_new/"
+FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/finetune_checkpoints_new/"
 
 IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 
@@ -42,7 +42,7 @@ for id in $ROOT_PATHS; do
         --task_name pretrain \
         --device $DEVICE \
         --root_path $root_path \
-        --run_name "v${TRIAL}_${MASKINGTYPE}_old_pretrain_${DATASET}_${id}" \
+        --run_name "v${TRIAL}_${MASKINGTYPE}_pretrain_${DATASET}_${id}" \
         --source_filename $SOURCE_FILE \
         --dataset $DATASET \
         --max_epochs $PRETRAIN_EPOCHS \
@@ -64,8 +64,8 @@ for id in $ROOT_PATHS; do
             --root_path $root_path\
             --gt_root_path $GT_ROOT_PATH \
             --gt_source_filename $GT_SOURCE_FILE \
-            --run_name "v${TRIAL}_${MASKINGTYPE}_old_finetune_${DATASET}_PRED_${pred_len}_${id}" \
-            --pretrain_run_name "v${TRIAL}_${MASKINGTYPE}_old_pretrain_${DATASET}_${id}" \
+            --run_name "v${TRIAL}_${MASKINGTYPE}_finetune_${DATASET}_PRED_${pred_len}_${id}" \
+            --pretrain_run_name "v${TRIAL}_${MASKINGTYPE}_pretrain_${DATASET}_${id}" \
             --freeze_encoder "False" \
             --max_epochs $FINETUNE_EPOCHS \
             --dataset $DATASET \
@@ -77,6 +77,7 @@ for id in $ROOT_PATHS; do
             --encoder_embed_dim 8 \
             --lr 0.0001 \
             --dropout 0.0 \
+            --fc_dropout 0.0 \
             --batch_size 64 \
             --project_name ett_masking \
             --finetune_checkpoints_dir $FINETUNE_CHECKPOINTS_DIR \

@@ -160,7 +160,7 @@ class Trainer():
         batch_loss, masked_batch_loss, unmasked_batch_loss = 0, 0, 0
         
         self.model.eval()
-        for iteration, (samples, _, masks, _) in enumerate(dataloader):
+        for iteration, (samples, masks) in enumerate(dataloader):
             samples = samples.to(self.device)
             masks = masks.to(self.device)
 
@@ -296,7 +296,7 @@ class Trainer():
         
         self.model.to(self.device)
         
-        n_batches = int(math.ceil(len(train_dataset) / self.batch_size))
+        n_batches = int(math.ceil(Xtrain.shape[0] / self.batch_size))
         
         eff_batch_size = self.batch_size * self.accum_iter
         
@@ -430,7 +430,7 @@ class Trainer():
         
         self.model.to(self.device)
         
-        n_batches = int(math.ceil(len(train_dataset) / self.batch_size))
+        n_batches = int(math.ceil(Xtrain.shape[0] / self.batch_size))
         
         eff_batch_size = self.batch_size * self.accum_iter
         
@@ -530,7 +530,7 @@ class Trainer():
                 losses[it] = batch_loss
                 
                 path = self.finetune_checkpoints_dir
-                # early_stopping(val_mse, self.model, path)
+                early_stopping(val_mse, self.model, path)
                 # # if early_stopping.early_stop:
                 # #     print("Early stopping")
                 # #     break
@@ -640,7 +640,7 @@ class Trainer():
         batch_loss = 0
         og_masks_list = []
         
-        ffor it, (samples, masks) in tqdm(enumerate(dataloader)):
+        for it, (samples, masks) in tqdm(enumerate(dataloader)):
             
             sample_X = copy.deepcopy(samples[:, :self.seq_len, :]).to(self.device)
             sample_Y = copy.deepcopy(samples[:, -self.pred_len:, :]).to(self.device)
@@ -807,6 +807,6 @@ class Trainer():
         mae = MAE_dict['MAE']
         
         print('{0}->{1}, mse:{2:.3f}, mae:{3:.3f}'.format(self.seq_len, self.pred_len, mse, mae))
-        f = open(folder_path+"score_"+flag+"_"+self.args['root_path'].split('/')[-1]+".txt", 'a')
+        f = open(folder_path + "score_" + self.args['root_path'].split('/')[-1]+".txt", 'a')
         f.write('{0}->{1}, {2:.3f}, {3:.3f} \n'.format(self.seq_len, self.pred_len, mse, mae))
         f.close()

@@ -27,10 +27,10 @@ SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_etth2"
 GT_SOURCE_FILE="ETTh2"
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
-OUTPUT_PATH="/projects/ml4science/time_series/outputs/etth2/${MASKINGTYPE}/"
+OUTPUT_PATH="/projects/ml4science/time_series/outputs_new/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
 
-PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/pretrain_checkpoints/"
-FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/finetune_checkpoints/"
+PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/pretrain_checkpoints_new/"
+FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/finetune_checkpoints_new/"
 
 IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 
@@ -77,10 +77,12 @@ for id in $ROOT_PATHS; do
             --encoder_embed_dim 8 \
             --lr 0.0001 \
             --dropout 0.4 \
+            --fc_dropout 0.4 \
             --batch_size 16 \
             --project_name ett_masking \
             --finetune_checkpoints_dir $FINETUNE_CHECKPOINTS_DIR \
             --pretrain_checkpoints_dir $PRETRAIN_CHECKPOINTS_DIR \
-            --output_path $OUTPUT_PATH
+            --output_path $OUTPUT_PATH \
+            --trial $TRIAL
     done
 done
