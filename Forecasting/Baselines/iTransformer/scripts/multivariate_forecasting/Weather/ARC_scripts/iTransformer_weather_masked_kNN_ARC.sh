@@ -17,13 +17,13 @@ DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 
-CHECKPOINT="/projects/ml4science/time_series/iTransformer/BRITS/checkpoints/"
+CHECKPOINT="/projects/ml4science/time_series/iTransformer/kNN/checkpoints/"
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/weather/"
 
 root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/weather/"
-data_path_name="v${TRIAL}_${MASKINGTYPE}_weather_imputed_BRITS.csv"
+data_path_name="v${TRIAL}_${MASKINGTYPE}_weather_imputed_kNN.csv"
 
-OUTPUT_PATH="/projects/ml4science/time_series/iTransformer/outputs/BRITS/${MASKINGTYPE}/weather_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/iTransformer/outputs/kNN/${MASKINGTYPE}/weather_v${TRIAL}/"
 
 seq_len=336
 
