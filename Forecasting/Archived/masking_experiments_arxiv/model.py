@@ -173,6 +173,8 @@ class MaskedAutoencoder(nn.Module):
 
             self.mask_token = nn.Parameter(torch.zeros(1, 1, self.decoder_embed_dim))
 
+            # self.decoder_pos_embed = nn.Parameter(torch.zeros(1, self.seq_len + 1, self.decoder_embed_dim), requires_grad=False)  # fixed sin-cos embedding
+
             self.decoder_blocks = nn.ModuleList([
                 Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer)
                 for i in range(self.decoder_depth)])
@@ -188,12 +190,14 @@ class MaskedAutoencoder(nn.Module):
             # ----------------
             # Decoder With a Linear Head
             # ----------------
+            # self.dfh = DecoderWithLinearHead(args, num_feats, self.cls_token)
             self.fh = FlattenHead(args, num_feats)
         
         self.set_masking_mode()
             
     def initialize_weights(self):
-        
+
+        # initialize patch_embed like nn.Linear (instead of nn.Conv2d)
         # w = self.mask_embed.proj.weight.data
         # torch.nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
         w = [self.mask_embed.embeddings[i][0].weight.data for i in range(self.num_feats)]
@@ -245,6 +249,7 @@ class MaskedAutoencoder(nn.Module):
         len_keep = self.seq_len
 
         noise = torch.linspace(0, 1, L, device=x.device).repeat(N, 1)  # predictable noise
+        # noise[m[:,0,:] < eps] = 1
         
         # sort noise for each sample
         ids_shuffle = torch.argsort(noise, dim=1)  # ascend: small is keep, large is remove
@@ -261,6 +266,9 @@ class MaskedAutoencoder(nn.Module):
         # unshuffle to get the binary mask
         mask = torch.gather(mask, dim=1, index=ids_restore)
         nask = torch.ones([N, L], device=x.device) - mask
+
+#         if self.training:
+#             mask[m[:, 0, :] < eps] = 0
         
         return x_masked, mask, nask, ids_restore
     
@@ -274,8 +282,13 @@ class MaskedAutoencoder(nn.Module):
         
         #uncomment this part when we infer
         len_keep = int(L * (1 - self.mask_ratio))
+        # if self.training:
+        #     len_keep = int(L * (1 - self.mask_ratio))
+        # else:
+        #     len_keep = int(torch.min(torch.sum(m, dim=2)))
         
         noise = torch.rand(N, L, device=x.device)  # noise in [0, 1]
+        # noise[m[:,0,:] < eps] = 1
         
         # sort noise for each sample
         ids_shuffle = torch.argsort(noise, dim=1)  # ascend: small is keep, large is remove
@@ -312,9 +325,6 @@ class MaskedAutoencoder(nn.Module):
     
     def forward_encoder(self, x, m):
         
-        '''
-        rev-in
-        '''
         means = torch.sum(x, dim=1) / torch.sum(m == 1, dim=1)
         means = means.unsqueeze(1)
         x = x - means
@@ -384,7 +394,12 @@ class MaskedAutoencoder(nn.Module):
         
         # remove cls token
         x = x[:, 1:, :]
-        
+        # print(f"output shape of decoder = {x.shape}")
+        # print(f"x shape = {x.shape}")
+        # print(f"std shape = {std.shape}")
+        # print(f"means shape = {means.shape}")
+        # exit(0)
+        # xcloned = x.clone
         x = x * (std[:, 0, :].unsqueeze(1).repeat(1, self.seq_len, 1))
         x = x + (means[:, 0, :].unsqueeze(1).repeat(1, self.seq_len, 1))
         
@@ -392,7 +407,19 @@ class MaskedAutoencoder(nn.Module):
     
 
     def forward_loss(self, data, pred, miss_idx, mask=None, nask=None, masked_penalize=False):
+        """
+        data: [N, 1, L]
+        pred: [N, L]
+        mask: [N, L], 0 is keep, 1 is remove, 
+        """
         
+        '''
+        create a 2D mask for loss computation
+        
+        Mask for loss computation = Original mask * Expanded 1D mask
+        '''
+        
+        # data = data.transpose(1, 2)
         target = data
         if mask is not None:
             mask = mask.unsqueeze(-1) * torch.ones(1, pred.shape[2], device=mask.device)
@@ -436,5 +463,6 @@ class MaskedAutoencoder(nn.Module):
         elif self.task_name=='finetune':
             latent, means, std = self.forward_encoder(data, miss_idx)
             latent = latent[:, 1:, :]
-            pred = self.fh(latent, means, std)
+            # pred = self.dfh(latent, means, std)
+            pred = self.fh(latent, means, std)[:, -self.pred_len:, :]
             return pred
