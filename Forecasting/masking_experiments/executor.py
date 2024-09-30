@@ -155,6 +155,8 @@ elif args.task_name=='finetune':
     if os.path.exists(load_model_path):
         print(f"Transferring weights from pretrained model")
         model = transfer_weights(load_model_path, model, device=args.device)
+    else:
+        print(f"No pretrained weights found")
     
     trainer = Trainer(args=vars(args), model=model, utils=utils)
     
