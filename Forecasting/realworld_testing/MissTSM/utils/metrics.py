@@ -11,31 +11,17 @@ def CORR(pred, true):
     d += 1e-12
     return 0.01*(u / d).mean(-1)
 
-
-# def MAE(pred, true):
-#     return np.mean(np.abs(pred - true))
 def MAE(pred, true):
     mask = ~np.isnan(true)
     pred_filtered = pred[mask]
     true_filtered = true[mask]
     return np.mean(np.abs(pred_filtered - true_filtered))
 
-# def MAE(pred, true, mask):
-#     mae = ((np.abs(pred-true)*mask).sum())/mask.sum()
-#     return mae
-# def MSE(pred, true):
-#     return np.mean((pred - true) ** 2)
-
 def MSE(pred, true):
     mask = ~np.isnan(true)
     pred_filtered = pred[mask]
     true_filtered = true[mask]
     return np.mean((pred_filtered - true_filtered) ** 2)
-
-# def MSE(pred, true, mask):
-#     mse = ((((pred-true)**2)*mask).sum())/mask.sum()
-#     return mse
-    # return np.mean((pred_filtered - true_filtered) ** 2)
 
 def RMSE(pred, true):
     return np.sqrt(MSE(pred, true))
@@ -50,9 +36,9 @@ def MSPE(pred, true):
 
 
 def metric(pred, true):
-    mae = MAE(pred, true)#, masks)
-    mse = MSE(pred, true)#, masks)
-    rmse = np.sqrt(mse)#RMSE(pred, true)
+    mae = MAE(pred, true)
+    mse = MSE(pred, true)
+    rmse = np.sqrt(mse)
     mape = MAPE(pred, true)
     mspe = MSPE(pred, true)
     rse = RSE(pred, true)

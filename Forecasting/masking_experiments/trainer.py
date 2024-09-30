@@ -263,7 +263,6 @@ class Trainer():
             masked_batch_loss /= len(dataloader)
             unmasked_batch_loss /= len(dataloader)
         
-        # losses[it] = batch_loss
         return batch_loss, masked_batch_loss, unmasked_batch_loss
         
     def pretrain(self, Xtrain=None, Xval=None, Xtest=None, masked_penalize=False):

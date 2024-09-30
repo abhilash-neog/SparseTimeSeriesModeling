@@ -287,7 +287,7 @@ class Utils:
 
         return X_train_torch, Y_train_torch, X_test_torch, Y_test_torch
     
-    def perform_windowing(self, df, path, name, split='train'):
+    def perform_windowing(self, df, name, split='train'):
         '''
         create a windowed dataset
     
@@ -299,46 +299,22 @@ class Utils:
         : return X, Y:            arrays with correct dimensions for LSTM
         :                         (i.e., [input/output window size # examples, # features])
         '''
+        L = df.shape[0]
+        num_samples = (L - self.pre_train_window) // self.stride + 1
+
+        X = [] 
         
-        filename=name + '_' + split + '_' + str(self.pre_train_window) +'.pkl'
-        save_path=os.path.join(path, filename)
-        
-        if os.path.exists(save_path):
-            print("Window dataset already exists")
-            X = self.load_pickle(save_path)
-            return X
-        
-        else:
-            L = df.shape[0]
-            num_samples = (L - self.pre_train_window) // self.stride + 1
+        for ii in tqdm(np.arange(num_samples)):
+            start_x = self.stride * ii
+            end_x = start_x + self.pre_train_window
 
-            # dfX = df[self.inp_cols]
+            subset_df = df.iloc[start_x:end_x, :].copy(deep=True)
 
-            X = [] #np.zeros([num_samples, self.pre_train_window, self.num_features])
-            # target_X = np.zeros([self.input_window, num_samples, self.num_out_features])
-            # shuffled_inds = random.sample(range(num_samples),num_samples)
-            
-            for ii in tqdm(np.arange(num_samples)):
-                start_x = self.stride * ii
-                end_x = start_x + self.pre_train_window
+            X.append(np.expand_dims(subset_df, axis=0))
 
-                subset_df = df.iloc[start_x:end_x, :].copy(deep=True)
-                
-                X.append(np.expand_dims(subset_df, axis=0))
-                
-                # if X.shape[0]==0:
-                #     X = np.expand_dims(subset_dfX, axis=0)
-                # else:
-                #     toAdd = np.expand_dims(subset_dfX, axis=0)
-                #     X = np.append(X, toAdd, axis=0)
+        X = np.concatenate(X, axis=0)
 
-            X = np.concatenate(X, axis=0)
-            
-            # with open(save_path, 'wb') as pickle_file:
-            #     pickle.dump(X, pickle_file)
-            #     print(f"Pickled dataset {filename}")
-
-            return X
+        return X
 
     def plot_forecast(self, df, preds, og_masks, sample_idx, plt_idx, lookback_window, epoch, train_or_val, title_prefix):
         """

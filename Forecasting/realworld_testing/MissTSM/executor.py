@@ -44,6 +44,8 @@ parser.add_argument('--gt_root_path', type=str, default=None, help='path to grou
 parser.add_argument('--gt_source_filename', type=str, default=None, help='path to ground-truth filename')
 parser.add_argument('--timeenc', type=int, default=2, choices=[0, 1, 2], help='0 indicates traditional time features, 1 indicates time-features , 2 indicates no time-feature creation')
 parser.add_argument('--freq', type=str, default='h', help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
+parser.add_argument('--features', type=str, default='MD',
+                        help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
 
 # model loader
 parser.add_argument('--finetune_checkpoints_dir', type=str, default='./finetune_checkpoints/', help='location of model fine-tuning checkpoints')
@@ -59,7 +61,8 @@ parser.add_argument('--label_len', type=int, default=7, help='window for pretrai
 parser.add_argument('--mask_ratio', type=float, default=0.5, help='mask ratio')
 parser.add_argument('--num_samples', type=int, default=10, help='number of sample regions to plot for each feature during pretraining')
 parser.add_argument('--num_windows', type=int, default=25, help='number of windows to generate merged plots')
-parser.add_argument('--feature_wise_mse', type=str, default='True', help='whether to plot feature-wise mse')
+parser.add_argument('--feature_wise_mse', type=str, default='False', help='whether to plot feature-wise mse')
+parser.add_argument('--target', type=str, nargs='+', default='chla')
 
 # finetuning task
 parser.add_argument('--pred_len', type=int, default=7, help='past sequence length')
@@ -84,11 +87,8 @@ parser.add_argument('--enc_in', type=int, default=7, help='number of input featu
 # training 
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--accum_iter', type=int, default=1, help='accumulation iteration for gradient accumulation')
-# parser.add_argument('--min_lr', type=float, default=1e-5, help='min learning rate')
 parser.add_argument('--weight_decay', type=float, default=0.001)
 parser.add_argument('--lr', type=float, default=0.0001)
-# parser.add_argument('--blr', type=float, default=1e-4, help='base learning rate')
-# parser.add_argument('--warmup_epochs', type=int, default=5, help='number of warmup epochs for learning rate')
 parser.add_argument('--max_epochs', type=int, default=10)
 parser.add_argument('--eval_freq', type=int, default=1, help='frequency at which we are evaluating the model during training')
 parser.add_argument('--dropout', type=float, default=0.05, help='dropout')
@@ -97,9 +97,6 @@ parser.add_argument('--inverse', action='store_true', help='inverse output data'
 
 # GPU
 parser.add_argument('--device', type=str, default='3', help='cuda device')
-# parser.add_argument('--use_gpu', type=bool, action='store_true', help='use gpu or not', default=True)
-# parser.add_argument('--use_multi_gpu', type=bool, action='store_true', help='use multiple gpus', default=False)
-# parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
 
 # weights and biases
 parser.add_argument('--project_name', type=str, default='ett', help='project name in wandb')
@@ -129,36 +126,21 @@ args.device = 'cuda:' + args.device if torch.cuda.is_available() else 'cpu'
 '''
 read and process data
 '''
-# dh = DataHandler(args)
-# train_X, val_X, test_X, utils = dh.handle()
-
-# dh = DataHandler(args)
-# # train_X, val_X, test_X, 
-# utils = dh.handle()
+dh = DataHandler(args, args.target)
+train_X, val_X, test_X, utils = dh.handle()
 
 if args.task_name=='pretrain':
     
-    model = MaskedAutoencoder(args, num_feats=args.enc_in)
-    # print(model)
-    # print(sum(p.numel() for p in model.parameters() if p.requires_grad))
-    # total_params = 0
-    # print("Parameter name and count:\n")
-    # for name, param in model.named_parameters():
-    #     if param.requires_grad:
-    #         param_count = param.numel()
-    #         print(f"{name}: {param_count}")
-    #         total_params += param_count
-    # print(f"total params = {total_params}")
-    # exit(0)
+    model = MaskedAutoencoder(utils=utils, args=args, num_feats=args.enc_in)
     
-    trainer = Trainer(args=vars(args), model=model)
+    trainer = Trainer(args=vars(args), model=model, utils=utils)
 
     args.pretrain_checkpoints_dir = os.path.join(args.pretrain_checkpoints_dir, base_run_name) 
     
     if not os.path.exists(args.pretrain_checkpoints_dir):
         os.makedirs(args.pretrain_checkpoints_dir)
     
-    history, model = trainer.pretrain()#train_X, val_X, test_X)
+    history, model = trainer.pretrain(train_X, val_X, test_X)
     
     model_path = os.path.join(args.pretrain_checkpoints_dir, args.ckpt_name)
     
@@ -173,7 +155,7 @@ elif args.task_name=='finetune':
     
     load_model_path = os.path.join(args.pretrain_checkpoints_dir, args.pretrain_run_name, args.pretrain_ckpt_name)
     
-    model = MaskedAutoencoder(args, num_feats=args.enc_in)
+    model = MaskedAutoencoder(utils, args, num_feats=args.enc_in)
     
     '''
     Training phase
@@ -183,9 +165,9 @@ elif args.task_name=='finetune':
         print(f"Transferring weights from pretrained model")
         model = transfer_weights(load_model_path, model, device=args.device)
     
-    trainer = Trainer(args=vars(args), model=model)
+    trainer = Trainer(args=vars(args), model=model, utils=utils)
     
-    history, model = trainer.finetune()#train_X, val_X, test_X)
+    history, model = trainer.finetune(train_X, val_X, test_X)
     
     save_model_path = os.path.join(args.finetune_checkpoints_dir, args.ckpt_name)
     torch.save(model, save_model_path) # saves the final model; may not be the best model
@@ -193,14 +175,17 @@ elif args.task_name=='finetune':
     '''
     Testing phase
     '''
-    # _, _, test_X_, _ = dh.handle(gt=True)
+    _, _, test_X_, _ = dh.handle(gt=True)
     
     best_model_path = os.path.join(args.finetune_checkpoints_dir, 'checkpoint.pth')
     
     print(f"Loading best fine-tuned model for testing ...")
     
-    ft_model = torch.load(best_model_path, map_location='cpu').to(args.device)
-    
-    trainer.test(ft_model, flag='test')
+    if os.path.exists(best_model_path):
+        ft_model = torch.load(best_model_path, map_location='cpu').to(args.device)
+    else:
+        print(f"model path does not exist")
+        
+    trainer.test(ft_model, test_X_)
     
 print(f"Done with model {args.task_name} ")

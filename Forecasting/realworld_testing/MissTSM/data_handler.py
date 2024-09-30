@@ -10,6 +10,7 @@ import os
 import json
 import pandas as pd
 import math
+import copy
 import datetime
 import timefeatures
 
@@ -17,115 +18,41 @@ from utils.util import Utils
 from functools import partial
 
 
-class ETTHour():
+class Lake():
     
-    def __init__(self, args, target='OT'):
+    def __init__(self, args, target=None):
         
         self.split_ratios = {'train':0.6, 
                              'val':0.2, 
-                             'test':0.2}
-        self.args = args
-
-    def read_data(self):
-        
-        filepath = os.path.join(self.args.root_path, self.args.source_filename)
-        
-        df = pd.read_csv(filepath)#+'.csv')
-
-        self.features_col = df.columns[1:]
-        self.date_col = df.columns[0]
-        
-        return df
-
-    def add_time_feats(self, df):
-        
-        df_date = df[[self.date_col]]
-        df_date[self.date_col] = pd.to_datetime(df_date[self.date_col])
-
-        if self.args.timeenc==0:
-            df_date['month'] = df_date.date.apply(lambda row: row.month, 1)
-            df_date['day'] = df_date.date.apply(lambda row: row.day, 1)
-            df_date['weekday'] = df_date.date.apply(lambda row: row.weekday(), 1)
-            df_date['hour'] = df_date.date.apply(lambda row: row.hour, 1)
-            df_date = df_date.drop(['date'], 1)
-        elif self.args.timeenc==1:
-            df_date = time_features(pd.to_datetime(df_date['date'].values), freq=self.args.freq)
-            df_date = df_date.transpose(1, 0)
-        else:
-            # No time features
-            return df[self.features_col]
-        
-        df = df[self.features_col]
-        df = pd.concat([df, df_date], axis=1)
-        return df
-
-class ETTMin():
-    
-    def __init__(self, args, target='OT'):
-        
-        self.split_ratios = {'train':0.6, 
-                             'val':0.2, 
-                             'test':0.2}
-        self.args = args
-
-    def read_data(self):
-        
-        filepath = os.path.join(self.args.root_path, self.args.source_filename)
-        
-        df = pd.read_csv(filepath)#+'.csv')
-
-        self.features_col = df.columns[1:]
-        self.date_col = df.columns[0]
-        
-        return df
-
-    def add_time_feats(self, df):
-        
-        df_date = df[[self.date_col]]
-        df_date[self.date_col] = pd.to_datetime(df_date[self.date_col])
-
-        if self.args.timeenc==0:
-            df_date['month'] = df_date.date.apply(lambda row: row.month, 1)
-            df_date['day'] = df_date.date.apply(lambda row: row.day, 1)
-            df_date['weekday'] = df_date.date.apply(lambda row: row.weekday(), 1)
-            df_date['hour'] = df_date.date.apply(lambda row: row.hour, 1)
-            df_date['minute'] = df_date.date.apply(lambda row: row.minute, 1)
-            df_date['minute'] = df_date.minute.map(lambda x: x // 15)
-            df_date = df_date.drop(['date'], 1)
-        elif self.args.timeenc==1:
-            df_date = time_features(pd.to_datetime(df_date['date'].values), freq=self.args.freq)
-            df_date = df_date.transpose(1, 0)
-        else:
-            # No time features
-            return df[self.features_col]
-        
-        df = df[self.features_col]
-        df = pd.concat([df, df_date], axis=1)
-        return df
-
-class Custom():
-    
-    def __init__(self, args, target='OT'):
-        
-        self.split_ratios = {'train':0.7, 
-                             'val':0.1, 
                              'test':0.2}
         self.args = args
         self.target = target
         
-    def read_data(self):
+    def read_data(self, gt=None):
         
-        filepath = os.path.join(self.args.root_path, self.args.source_filename)
+        if gt is not None:
+            root_path=self.args.gt_root_path
+            data_path=self.args.gt_source_filename
+        else:
+            root_path=self.args.root_path
+            data_path=self.args.source_filename
         
-        df = pd.read_csv(filepath)#+'.csv')
-
-        self.features_col = df.columns[1:]
-        self.date_col = df.columns[0]
+        filepath = os.path.join(root_path, data_path)
+        
+        df = pd.read_csv(filepath+'.csv')
         
         cols = list(df.columns)
-        cols.remove(self.target)
+        
         cols.remove('date')
-        df = df[['date'] + cols + [self.target]]
+        self.features_col = copy.deepcopy(cols)
+        
+        # target is a list
+        for col in self.target:
+            cols.remove(col)
+        
+        self.date_col = df.columns[0]
+        
+        df = df[['date'] + cols + self.target]
         
         return df
     
@@ -155,32 +82,22 @@ class Custom():
         df = df[self.features_col]
         df = pd.concat([df, df_date], axis=1)
         return df
-        
-    
+
 class DataHandler():
     
-    def __init__(self, args):
+    def __init__(self, args, target):
         
         data_map = {
-            'ETTh1': ETTHour,
-            'ETTh2': ETTHour,
-            'ETTm1': ETTMin,
-            'ETTm2': ETTMin,
-            'weather': Custom,
-            'traffic': Custom,
-            'electricity': Custom,
-            'Lake': Custom
+            'Lake': Lake
         }
         
         self.args = args
-        # if args.dataset=='ETT':
-        #     self.dataClass = data_map[args.source_filename[:-4]]
-        # else:
+        self.target = target
         self.dataClass = data_map[args.dataset]
             
-    def handle(self):
+    def handle(self, gt=None):
         
-        self.handler = self.dataClass(self.args)
+        self.handler = self.dataClass(self.args, target=self.target)
         
         '''
         read the file
@@ -199,20 +116,18 @@ class DataHandler():
                       date_col=self.handler.date_col, 
                       args=self.args,
                       stride=1)
-        return utils
+        
         '''
         create train and val set
         '''
-        train_df, val_df, test_df = utils.split_data(df_X, handler.split_ratios)
+        train_df, val_df, test_df = utils.split_data(df_X, self.handler.split_ratios)
         
         '''
-        create windowed dataset or load one 
+        create windowed dataset 
         '''
-        data_path = os.path.join(self.args.root_path, self.args.dataset)
-        
-        train_X = utils.perform_windowing(train_df, data_path, name=self.args.source_filename, split='train')
-        val_X = utils.perform_windowing(val_df, data_path, name=self.args.source_filename, split='val')
-        test_X = utils.perform_windowing(test_df, data_path, name=self.args.source_filename, split='test')
+        train_X = utils.perform_windowing(train_df, name=self.args.source_filename, split='train')
+        val_X = utils.perform_windowing(val_df, name=self.args.source_filename, split='val')
+        test_X = utils.perform_windowing(test_df, name=self.args.source_filename, split='test')
         
         '''
         standardize the data
