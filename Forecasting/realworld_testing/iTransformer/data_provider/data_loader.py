@@ -49,10 +49,8 @@ class Dataset_Lake(Dataset):
         df_raw.columns: ['date', ...(other features), target feature]
         '''
         cols = list(df_raw.columns)
-        # print(f'columns are: {cols}')
         for col in self.target:
             cols.remove(col)
-
 
         cols.remove('date')
         df_raw = df_raw[['date'] + cols + self.target]
