@@ -1,4 +1,3 @@
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
 DEVICES=$1
 TRIAL=$2
@@ -17,9 +16,8 @@ data_name=Lake
 seq_len=21
 
 model_name=iTransformer
-cd ..
 
-for pred_len in 7; do
+for pred_len in 7 14 21; do
     python -u run.py \
     --target 'daily_median_chla_interp_ugL' 'daily_median_watertemp_interp_degC'\
     --freq d \
@@ -36,17 +34,18 @@ for pred_len in 7; do
     --seq_len $seq_len \
     --pred_len $pred_len \
     --e_layers 2 \
-    --enc_in 7 \
-    --dec_in 7 \
-    --c_out 7 \
+    --enc_in 15 \
+    --dec_in 15 \
+    --c_out 15 \
     --des 'Exp' \
-    --d_model 128 \
+    --d_model 32 \
     --d_ff 128 \
     --itr 1 \
     --gpu $DEVICES \
+    --batch_size 8 \
     --checkpoints $CHECKPOINT \
     --trial $TRIAL \
-    --train_epochs 1\
+    --train_epochs 100\
     --learning_rate 0.0001 \
     --checkpoints $CHECKPOINT \
     --output_path $OUTPUT_PATH

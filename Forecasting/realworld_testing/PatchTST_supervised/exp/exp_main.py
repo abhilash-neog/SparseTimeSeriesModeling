@@ -83,7 +83,12 @@ class Exp_Main(Exp_Basic):
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                         else:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
-                f_dim = -1 if self.args.features == 'MS' else 0
+                if self.args.features == 'MS':
+                    f_dim = -1
+                elif self.args.features == 'MD':
+                    f_dim = -2
+                else:
+                    f_dim = 0
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
 
@@ -160,7 +165,12 @@ class Exp_Main(Exp_Basic):
                             else:
                                 outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
 
-                        f_dim = -1 if self.args.features == 'MS' else 0
+                        if self.args.features == 'MS':
+                            f_dim = -1
+                        elif self.args.features == 'MD':
+                            f_dim = -2
+                        else:
+                            f_dim = 0
                         outputs = outputs[:, -self.args.pred_len:, f_dim:]
                         batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
                         loss = criterion(outputs, batch_y)
@@ -175,7 +185,12 @@ class Exp_Main(Exp_Basic):
                         else:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark, batch_y)
                     # print(outputs.shape,batch_y.shape)
-                    f_dim = -1 if self.args.features == 'MS' else 0
+                    if self.args.features == 'MS':
+                        f_dim = -1
+                    elif self.args.features == 'MD':
+                        f_dim = -2
+                    else:
+                        f_dim = 0
                     outputs = outputs[:, -self.args.pred_len:, f_dim:]
                     batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
                     loss = criterion(outputs, batch_y)
@@ -279,7 +294,12 @@ class Exp_Main(Exp_Basic):
                         else:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
 
-                f_dim = -1 if self.args.features == 'MS' else 0
+                if self.args.features == 'MS':
+                    f_dim = -1
+                elif self.args.features == 'MD':
+                    f_dim = -2
+                else:
+                    f_dim = 0
                 # print(outputs.shape,batch_y.shape)
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
@@ -384,7 +404,12 @@ class Exp_Main(Exp_Basic):
                         else:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
 
-                f_dim = -1 if self.args.features == 'MS' else 0
+                if self.args.features == 'MS':
+                    f_dim = -1
+                elif self.args.features == 'MD':
+                    f_dim = -2
+                else:
+                    f_dim = 0
                 # print(outputs.shape,batch_y.shape)
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
@@ -398,7 +423,12 @@ class Exp_Main(Exp_Basic):
             
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader_gt):
                 # print(f"batch_y = {batch_y[0, :, -1]}")
-                f_dim = -1 if self.args.features == 'MS' else 0
+                if self.args.features == 'MS':
+                    f_dim = -1
+                elif self.args.features == 'MD':
+                    f_dim = -2
+                else:
+                    f_dim = 0
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
                 true = batch_y.detach().cpu().numpy()
                 trues.append(true)
