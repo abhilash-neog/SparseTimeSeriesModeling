@@ -1,5 +1,5 @@
 DATASET="ETT"
-SOURCE_FILE="ETTh2.csv"
+SOURCE_FILE="ETTh2"
 
 PRETRAIN_EPOCHS=50
 FINETUNE_EPOCHS=10
@@ -11,14 +11,14 @@ STUDY_NAME=$4
 TRIALS=$5
 
 pred_len=720
-OUTPUT_PATH="./outputs/ETTh2/"
-PRETRAIN_CKPT_DIR="/raid/abhilash/optuna_pretrain_checkpoints_ETTh2/"
-FINETUNE_CKPT_DIR="/raid/abhilash/optuna_finetune_checkpoints_ETTh2/"
+OUTPUT_PATH="./outputs/ETTh2_new/"
+PRETRAIN_CKPT_DIR="/raid/abhilash/optuna_pretrain_checkpoints_ETTh2_new/"
+FINETUNE_CKPT_DIR="/raid/abhilash/optuna_finetune_checkpoints_ETTh2_new/"
 
 ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
 # PRETRAIN
-python -u executor_trials.py \
+python -u executor.py \
     --task_name pretrain \
     --device $DEVICE \
     --root_path $ROOT_PATH \
@@ -38,5 +38,5 @@ python -u executor_trials.py \
     --stats_file $STATS \
     --study_name $STUDY_NAME \
     --ntrials $TRIALS \
-    --pretrain_lr 0.001\
+    --pretrain_lr 0.001 \
     --finetune_lr 0.0001
