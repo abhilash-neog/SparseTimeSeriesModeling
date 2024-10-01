@@ -291,13 +291,13 @@ class Utils:
         self.device = args.device
         self.windowed_dataset_path = ""
         self.task_name = args.task_name
-        self.n2one = args.n2one
-        self.pred_len = args.pred_len
+        # self.n2one = args.n2one
+        # self.pred_len = args.pred_len
 
-        if args.task_name=='finetune':
-            self.pre_train_window = self.seq_len + self.pred_len
-        else:
-            self.pre_train_window = self.seq_len
+        # if args.task_name=='finetune':
+        #     self.pre_train_window = self.seq_len + self.pred_len
+        # else:
+        self.pre_train_window = self.seq_len
         
         self.target_index = -1
     
@@ -447,77 +447,77 @@ class Utils:
 
             return X
 
-    def plot_forecast(self, df, preds, og_masks, sample_idx, plt_idx, lookback_window, epoch, train_or_val, title_prefix):
-        """
-        This function plots t+plt_idx horizon plots
-        """
-        preds = preds.detach()
-        df = df.detach()
-        og_masks = og_masks.detach()
+    # def plot_forecast(self, df, preds, og_masks, sample_idx, plt_idx, lookback_window, epoch, train_or_val, title_prefix):
+    #     """
+    #     This function plots t+plt_idx horizon plots
+    #     """
+    #     preds = preds.detach()
+    #     df = df.detach()
+    #     og_masks = og_masks.detach()
         
-        sample_time_series = df[sample_idx] # GT : samples, L, feat
-        predictions = preds[sample_idx]
+    #     sample_time_series = df[sample_idx] # GT : samples, L, feat
+    #     predictions = preds[sample_idx]
         
-        og_mask = og_masks[sample_idx]
+    #     og_mask = og_masks[sample_idx]
         
-        sample_time_series = sample_time_series*og_mask
-        sample_time_series = torch.where(sample_time_series==0, torch.tensor(float('nan')).to(self.device), sample_time_series)
+    #     sample_time_series = sample_time_series*og_mask
+    #     sample_time_series = torch.where(sample_time_series==0, torch.tensor(float('nan')).to(self.device), sample_time_series)
 
-        sample_time_series = sample_time_series.cpu().numpy()                          
-        predictions = predictions.cpu().numpy()
+    #     sample_time_series = sample_time_series.cpu().numpy()                          
+    #     predictions = predictions.cpu().numpy()
 
-        # Create a figure
-        num_feats = predictions.shape[2]
-        num_samples = len(plt_idx)
+    #     # Create a figure
+    #     num_feats = predictions.shape[2]
+    #     num_samples = len(plt_idx)
         
-        fig, axes = plt.subplots(num_feats, num_samples, figsize=(6*num_samples, num_feats*3))
+    #     fig, axes = plt.subplots(num_feats, num_samples, figsize=(6*num_samples, num_feats*3))
         
-        if self.n2one=="True":
+    #     if self.n2one=="True":
             
-            for i, sample_id in enumerate(plt_idx):      
-                ax = axes[i]
-                sample_id = int(sample_id)
-                feature_name = self.inp_cols[self.chloro_index]#[idx]
-                dates = np.arange(predictions.shape[0])
-                ax.plot(dates, predictions[:, sample_id, 0], label='Predictions TS', marker='o', linestyle='-', markersize=1,
-                        color='green')
-                ax.plot(dates, sample_time_series[:, sample_id, 0], label='Unmasked TS', marker='o', linestyle='-', markersize=1, 
-                         color='blue')
+    #         for i, sample_id in enumerate(plt_idx):      
+    #             ax = axes[i]
+    #             sample_id = int(sample_id)
+    #             feature_name = self.inp_cols[self.chloro_index]#[idx]
+    #             dates = np.arange(predictions.shape[0])
+    #             ax.plot(dates, predictions[:, sample_id, 0], label='Predictions TS', marker='o', linestyle='-', markersize=1,
+    #                     color='green')
+    #             ax.plot(dates, sample_time_series[:, sample_id, 0], label='Unmasked TS', marker='o', linestyle='-', markersize=1, 
+    #                      color='blue')
 
-                subtitle = f'{feature_name}: Plot at t+{sample_id-lookback_window+1}'
-                ax.set_title(subtitle)
-                ax.set_xlabel('Time Step')
-                ax.set_ylabel('Values')
-                ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
-                ax.legend(loc="best")
-        else:
+    #             subtitle = f'{feature_name}: Plot at t+{sample_id-lookback_window+1}'
+    #             ax.set_title(subtitle)
+    #             ax.set_xlabel('Time Step')
+    #             ax.set_ylabel('Values')
+    #             ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+    #             ax.legend(loc="best")
+    #     else:
             
-            for i, sample_id in enumerate(plt_idx):
+    #         for i, sample_id in enumerate(plt_idx):
                 
-                for idx in range(num_feats):
+    #             for idx in range(num_feats):
                     
-                    ax = axes[idx, i]      
-                    sample_id = int(sample_id)
-                    feature_name = self.inp_cols[idx]
-                    dates = np.arange(predictions.shape[0])
-                    ax.plot(dates, predictions[:, sample_id, idx], label='Predictions TS', marker='o', linestyle='-', markersize=1,
-                            color='green')
-                    ax.plot(dates, sample_time_series[:, sample_id, idx], label='Unmasked TS', marker='o', linestyle='-', markersize=1, 
-                             color='blue')
+    #                 ax = axes[idx, i]      
+    #                 sample_id = int(sample_id)
+    #                 feature_name = self.inp_cols[idx]
+    #                 dates = np.arange(predictions.shape[0])
+    #                 ax.plot(dates, predictions[:, sample_id, idx], label='Predictions TS', marker='o', linestyle='-', markersize=1,
+    #                         color='green')
+    #                 ax.plot(dates, sample_time_series[:, sample_id, idx], label='Unmasked TS', marker='o', linestyle='-', markersize=1, 
+    #                          color='blue')
 
-                    subtitle = f'{feature_name}: Plot at t+{sample_id-lookback_window+1}'
-                    ax.set_title(subtitle)
-                    ax.set_xlabel('Time Step')
-                    ax.set_ylabel('Values')
-                    ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
-                    ax.legend(loc="best")
+    #                 subtitle = f'{feature_name}: Plot at t+{sample_id-lookback_window+1}'
+    #                 ax.set_title(subtitle)
+    #                 ax.set_xlabel('Time Step')
+    #                 ax.set_ylabel('Values')
+    #                 ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+    #                 ax.legend(loc="best")
             
         
-        title = f'{title_prefix}: {train_or_val} t+N Forecasts at epoch: {epoch}'
-        plt.tight_layout()
-        plt.suptitle(title, y=1.02)
-        wandb.log({title: wandb.Image(plt)})
-        plt.close()
+    #     title = f'{title_prefix}: {train_or_val} t+N Forecasts at epoch: {epoch}'
+    #     plt.tight_layout()
+    #     plt.suptitle(title, y=1.02)
+    #     wandb.log({title: wandb.Image(plt)})
+    #     plt.close()
         
 
     def plot_merged_context_windows(self, df, preds, og_masks, masks, sample_index, epoch, train_or_val, title_prefix):
@@ -605,173 +605,173 @@ class Utils:
         plt.close()
     
     
-    def plot_context_window_grid_with_original_masks(self, df, preds, og_masks, sample_index, epoch, train_or_val, title_prefix):
-        """
-        This function creates a grid of size Number of features X Num_Samples
-        where num_samples = len(sample_index)
-        """
-        preds = preds.detach()
-        df = df.detach()
-        og_masks = og_masks.detach()
+    # def plot_context_window_grid_with_original_masks(self, df, preds, og_masks, sample_index, epoch, train_or_val, title_prefix):
+    #     """
+    #     This function creates a grid of size Number of features X Num_Samples
+    #     where num_samples = len(sample_index)
+    #     """
+    #     preds = preds.detach()
+    #     df = df.detach()
+    #     og_masks = og_masks.detach()
         
-        sample_time_series = df[sample_index] # GT
-        predictions = preds[sample_index]
-        og_mask = og_masks[sample_index]
+    #     sample_time_series = df[sample_index] # GT
+    #     predictions = preds[sample_index]
+    #     og_mask = og_masks[sample_index]
         
-        og_masked_ts = og_mask*sample_time_series
-        og_masked_ts = torch.where(og_masked_ts==0, torch.tensor(float('nan')).to(self.device), og_masked_ts)
+    #     og_masked_ts = og_mask*sample_time_series
+    #     og_masked_ts = torch.where(og_masked_ts==0, torch.tensor(float('nan')).to(self.device), og_masked_ts)
         
-        masked_ts = og_masked_ts.cpu().numpy()
-        og_masked_ts = og_masked_ts.cpu().numpy()
-        sample_time_series = sample_time_series.cpu().numpy()                          
-        predictions = predictions.cpu().numpy()
+    #     masked_ts = og_masked_ts.cpu().numpy()
+    #     og_masked_ts = og_masked_ts.cpu().numpy()
+    #     sample_time_series = sample_time_series.cpu().numpy()                          
+    #     predictions = predictions.cpu().numpy()
         
-        # Create a figure
-        num_feats = preds.shape[2]
-        num_samples = len(sample_index)
+    #     # Create a figure
+    #     num_feats = preds.shape[2]
+    #     num_samples = len(sample_index)
         
-        fig, axes = plt.subplots(num_feats, num_samples, figsize=(4*num_samples, num_feats*3))
+    #     fig, axes = plt.subplots(num_feats, num_samples, figsize=(4*num_samples, num_feats*3))
         
-        if self.n2one=="True":
+    #     if self.n2one=="True":
             
-            for sample_id in range(num_samples):
-                # for idx in range(num_feats):
-                # ax = axes[idx, sample_id]      
-                ax = axes[sample_id]
+    #         for sample_id in range(num_samples):
+    #             # for idx in range(num_feats):
+    #             # ax = axes[idx, sample_id]      
+    #             ax = axes[sample_id]
                 
-                feature_name = self.inp_cols[self.chloro_index]#[idx]
-                dates = np.arange(predictions.shape[1])
-                plt.tight_layout()
-                ax.plot(dates, predictions[sample_id, :, 0], label='Predictions TS', marker='o', linestyle='-', markersize=1,
-                        color='green')
-                ax.plot(dates, masked_ts[sample_id, :, 0], label='Original TS', marker='o', linestyle='-', markersize=1, 
-                         color='blue')
-                # ax.plot(dates, masked_ts[sample_id, :, 0], label='Original Masked TS', marker='o', linestyle='-', markersize=1,
-                #          markerfacecolor='yellow', markeredgecolor='yellow', color='yellow', alpha=0.9)
-                ax.axvline(x=self.seq_len, color='black', linestyle='-', linewidth=2)
+    #             feature_name = self.inp_cols[self.chloro_index]#[idx]
+    #             dates = np.arange(predictions.shape[1])
+    #             plt.tight_layout()
+    #             ax.plot(dates, predictions[sample_id, :, 0], label='Predictions TS', marker='o', linestyle='-', markersize=1,
+    #                     color='green')
+    #             ax.plot(dates, masked_ts[sample_id, :, 0], label='Original TS', marker='o', linestyle='-', markersize=1, 
+    #                      color='blue')
+    #             # ax.plot(dates, masked_ts[sample_id, :, 0], label='Original Masked TS', marker='o', linestyle='-', markersize=1,
+    #             #          markerfacecolor='yellow', markeredgecolor='yellow', color='yellow', alpha=0.9)
+    #             ax.axvline(x=self.seq_len, color='black', linestyle='-', linewidth=2)
                 
-                subtitle = '{}'.format(feature_name)
-                ax.set_title(subtitle)
-                ax.set_xlabel('Time Step')
-                ax.set_ylabel('Values')
-                ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
-                ax.legend(loc="best")
-        else:
-            for sample_id in range(num_samples):
+    #             subtitle = '{}'.format(feature_name)
+    #             ax.set_title(subtitle)
+    #             ax.set_xlabel('Time Step')
+    #             ax.set_ylabel('Values')
+    #             ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+    #             ax.legend(loc="best")
+    #     else:
+    #         for sample_id in range(num_samples):
                 
-                for idx in range(num_feats):
-                    ax = axes[idx, sample_id]      
+    #             for idx in range(num_feats):
+    #                 ax = axes[idx, sample_id]      
 
-                    feature_name = self.inp_cols[idx]
-                    dates = np.arange(predictions.shape[1])
-                    ax.plot(dates, predictions[sample_id, :, idx], label='Predictions TS', marker='o', linestyle='-', markersize=1,
-                            color='green')
-                    ax.plot(dates, masked_ts[sample_id, :, idx], label='Original TS', marker='o', linestyle='-', markersize=1, 
-                         color='blue')
-                    # ax.plot(dates, masked_ts[sample_id, :, idx], label='Original Masked TS', marker='o', linestyle='-', markersize=1,
-                    #          markerfacecolor='yellow', markeredgecolor='yellow', color='yellow', alpha=0.9)
+    #                 feature_name = self.inp_cols[idx]
+    #                 dates = np.arange(predictions.shape[1])
+    #                 ax.plot(dates, predictions[sample_id, :, idx], label='Predictions TS', marker='o', linestyle='-', markersize=1,
+    #                         color='green')
+    #                 ax.plot(dates, masked_ts[sample_id, :, idx], label='Original TS', marker='o', linestyle='-', markersize=1, 
+    #                      color='blue')
+    #                 # ax.plot(dates, masked_ts[sample_id, :, idx], label='Original Masked TS', marker='o', linestyle='-', markersize=1,
+    #                 #          markerfacecolor='yellow', markeredgecolor='yellow', color='yellow', alpha=0.9)
                     
-                    if self.task_name=='finetune' or self.task_name=='zeroshot':
-                        plt.tight_layout()
-                        ax.axvline(x=self.seq_len, color='black', linestyle='-', linewidth=2)
+    #                 if self.task_name=='finetune' or self.task_name=='zeroshot':
+    #                     plt.tight_layout()
+    #                     ax.axvline(x=self.seq_len, color='black', linestyle='-', linewidth=2)
                         
-                    subtitle = '{}'.format(feature_name)
-                    ax.set_title(subtitle)
-                    ax.set_xlabel('Time Step')
-                    ax.set_ylabel('Values')
-                    ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
-                    ax.legend(loc="best")
+    #                 subtitle = '{}'.format(feature_name)
+    #                 ax.set_title(subtitle)
+    #                 ax.set_xlabel('Time Step')
+    #                 ax.set_ylabel('Values')
+    #                 ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+    #                 ax.legend(loc="best")
         
-        title = '{}: {} Single Windows w/Original Masks at epoch: {}'.format(title_prefix, train_or_val, epoch)
-        plt.tight_layout()
-        plt.suptitle(title, y=1.02)
-        wandb.log({title: wandb.Image(plt)})
-        plt.close()
+    #     title = '{}: {} Single Windows w/Original Masks at epoch: {}'.format(title_prefix, train_or_val, epoch)
+    #     plt.tight_layout()
+    #     plt.suptitle(title, y=1.02)
+    #     wandb.log({title: wandb.Image(plt)})
+    #     plt.close()
     
-    def plot_context_window_grid(self, df, preds, masks, og_masks, sample_index, epoch, train_or_val, title_prefix):
-        """
-        This function creates a grid of size Number of features X Num_Samples
-        where num_samples = len(sample_index)
-        """
-        preds = preds.detach()
-        df = df.detach()
-        masks = masks.detach()
-        og_masks = og_masks.detach()
+    # def plot_context_window_grid(self, df, preds, masks, og_masks, sample_index, epoch, train_or_val, title_prefix):
+    #     """
+    #     This function creates a grid of size Number of features X Num_Samples
+    #     where num_samples = len(sample_index)
+    #     """
+    #     preds = preds.detach()
+    #     df = df.detach()
+    #     masks = masks.detach()
+    #     og_masks = og_masks.detach()
         
-        sample_time_series = df[sample_index] # GT
-        predictions = preds[sample_index]
-        mask = masks[sample_index]
-        og_mask = og_masks[sample_index]
+    #     sample_time_series = df[sample_index] # GT
+    #     predictions = preds[sample_index]
+    #     mask = masks[sample_index]
+    #     og_mask = og_masks[sample_index]
         
-        og_mask = 1-og_mask
-        mask = mask.unsqueeze(-1) * torch.ones(1, predictions.shape[2], device=mask.device)
-        mask = torch.logical_or(mask, og_mask)
-        masked_ts = mask*sample_time_series
-        masked_ts = torch.where(masked_ts==0, torch.tensor(float('nan')).to(self.device), masked_ts)
+    #     og_mask = 1-og_mask
+    #     mask = mask.unsqueeze(-1) * torch.ones(1, predictions.shape[2], device=mask.device)
+    #     mask = torch.logical_or(mask, og_mask)
+    #     masked_ts = mask*sample_time_series
+    #     masked_ts = torch.where(masked_ts==0, torch.tensor(float('nan')).to(self.device), masked_ts)
         
-        masked_ts = masked_ts.cpu().numpy()
-        sample_time_series = sample_time_series.cpu().numpy()                          
-        predictions = predictions.cpu().numpy()
-        mask = mask.cpu().numpy()
+    #     masked_ts = masked_ts.cpu().numpy()
+    #     sample_time_series = sample_time_series.cpu().numpy()                          
+    #     predictions = predictions.cpu().numpy()
+    #     mask = mask.cpu().numpy()
 
-        # Create a figure
-        num_feats = preds.shape[2]
-        num_samples = len(sample_index)
+    #     # Create a figure
+    #     num_feats = preds.shape[2]
+    #     num_samples = len(sample_index)
         
-        fig, axes = plt.subplots(num_feats, num_samples, figsize=(4*num_samples, num_feats*3))
+    #     fig, axes = plt.subplots(num_feats, num_samples, figsize=(4*num_samples, num_feats*3))
 
-        if self.n2one=="True":
+    #     if self.n2one=="True":
             
-            for sample_id in range(num_samples):
-                # for idx in range(num_feats):
-                # ax = axes[idx, sample_id]      
-                ax = axes[sample_id]
+    #         for sample_id in range(num_samples):
+    #             # for idx in range(num_feats):
+    #             # ax = axes[idx, sample_id]      
+    #             ax = axes[sample_id]
                 
-                feature_name = self.inp_cols[self.chloro_index]#[idx]
-                dates = np.arange(predictions.shape[1])
-                plt.tight_layout()
-                ax.plot(dates, predictions[sample_id, :, 0], label='Predictions TS', marker='o', linestyle='-', markersize=1,
-                        color='green')
-                ax.plot(dates, sample_time_series[sample_id, :, 0], label='Unmasked TS', marker='o', linestyle='-', markersize=1, 
-                         color='blue')
-                ax.plot(dates, masked_ts[sample_id, :, 0], label='Masked TS', marker='o', linestyle='-', markersize=1,
-                         markerfacecolor='red', markeredgecolor='red', color='red', alpha=0.7)
+    #             feature_name = self.inp_cols[self.chloro_index]#[idx]
+    #             dates = np.arange(predictions.shape[1])
+    #             plt.tight_layout()
+    #             ax.plot(dates, predictions[sample_id, :, 0], label='Predictions TS', marker='o', linestyle='-', markersize=1,
+    #                     color='green')
+    #             ax.plot(dates, sample_time_series[sample_id, :, 0], label='Unmasked TS', marker='o', linestyle='-', markersize=1, 
+    #                      color='blue')
+    #             ax.plot(dates, masked_ts[sample_id, :, 0], label='Masked TS', marker='o', linestyle='-', markersize=1,
+    #                      markerfacecolor='red', markeredgecolor='red', color='red', alpha=0.7)
                 
-                ax.axvline(x=self.seq_len, color='black', linestyle='-', linewidth=2)
+    #             ax.axvline(x=self.seq_len, color='black', linestyle='-', linewidth=2)
                 
-                subtitle = '{}'.format(feature_name)
-                ax.set_title(subtitle)
-                ax.set_xlabel('Time Step')
-                ax.set_ylabel('Values')
-                ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
-                ax.legend(loc="best")
-        else:
-            for sample_id in range(num_samples):
-                for idx in range(num_feats):
-                    ax = axes[idx, sample_id]      
+    #             subtitle = '{}'.format(feature_name)
+    #             ax.set_title(subtitle)
+    #             ax.set_xlabel('Time Step')
+    #             ax.set_ylabel('Values')
+    #             ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+    #             ax.legend(loc="best")
+    #     else:
+    #         for sample_id in range(num_samples):
+    #             for idx in range(num_feats):
+    #                 ax = axes[idx, sample_id]      
 
-                    feature_name = self.inp_cols[idx]
-                    dates = np.arange(predictions.shape[1])
-                    ax.plot(dates, predictions[sample_id, :, idx], label='Predictions TS', marker='o', linestyle='-', markersize=1,
-                            color='green')
-                    ax.plot(dates, sample_time_series[sample_id, :, idx], label='Unmasked TS', marker='o', linestyle='-', markersize=1, 
-                             color='blue')
-                    ax.plot(dates, masked_ts[sample_id, :, idx], label='Masked TS', marker='o', linestyle='-', markersize=1,
-                             markerfacecolor='red', markeredgecolor='red', color='red', alpha=0.7)
+    #                 feature_name = self.inp_cols[idx]
+    #                 dates = np.arange(predictions.shape[1])
+    #                 ax.plot(dates, predictions[sample_id, :, idx], label='Predictions TS', marker='o', linestyle='-', markersize=1,
+    #                         color='green')
+    #                 ax.plot(dates, sample_time_series[sample_id, :, idx], label='Unmasked TS', marker='o', linestyle='-', markersize=1, 
+    #                          color='blue')
+    #                 ax.plot(dates, masked_ts[sample_id, :, idx], label='Masked TS', marker='o', linestyle='-', markersize=1,
+    #                          markerfacecolor='red', markeredgecolor='red', color='red', alpha=0.7)
                     
-                    if self.task_name=='finetune' or self.task_name=='zeroshot':
-                        plt.tight_layout()
-                        ax.axvline(x=self.lookback_window, color='black', linestyle='-', linewidth=2)
+    #                 if self.task_name=='finetune' or self.task_name=='zeroshot':
+    #                     plt.tight_layout()
+    #                     ax.axvline(x=self.lookback_window, color='black', linestyle='-', linewidth=2)
                     
-                    subtitle = '{}'.format(feature_name)
-                    ax.set_title(subtitle)
-                    ax.set_xlabel('Time Step')
-                    ax.set_ylabel('Values')
-                    ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
-                    ax.legend(loc="best")
+    #                 subtitle = '{}'.format(feature_name)
+    #                 ax.set_title(subtitle)
+    #                 ax.set_xlabel('Time Step')
+    #                 ax.set_ylabel('Values')
+    #                 ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+    #                 ax.legend(loc="best")
         
-        title = '{}: {} Individual Context-Windows at epoch: {}'.format(title_prefix, train_or_val, epoch)
-        plt.tight_layout()
-        plt.suptitle(title, y=1.02)
-        wandb.log({title: wandb.Image(plt)})
-        plt.close()
+    #     title = '{}: {} Individual Context-Windows at epoch: {}'.format(title_prefix, train_or_val, epoch)
+    #     plt.tight_layout()
+    #     plt.suptitle(title, y=1.02)
+    #     wandb.log({title: wandb.Image(plt)})
+    #     plt.close()

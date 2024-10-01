@@ -93,7 +93,7 @@ class Trainer():
         self.task_name = self.args.task_name
         self.window_len = self.seq_len
         self.finetune_checkpoints_dir = args.finetune_checkpoints_dir
-        self.configs = self.model.data_config
+        # self.configs = self.model.data_config
         self.trial = args.trial
         
         # Load datasets
@@ -151,6 +151,23 @@ class Trainer():
                 batch_size=self.batch_size,
             )
         return dataloader
+
+    def get_data_PT(self, X, split_flag):
+        
+        M = 1 - (1 * (torch.isnan(X)))
+        M = M.float()
+        
+        X = torch.nan_to_num(X)
+        
+        '''
+        Dataloader
+        '''
+        dataset = MAEDataset_PT(X, M)
+        dataloader = DataLoader(
+            dataset,
+            shuffle=False,
+            batch_size=self.batch_size)
+        return dataloader
     
     def val_one_epoch(self, dataloader, split, masked_penalize):
         
@@ -158,7 +175,7 @@ class Trainer():
         predictions = []
         gt = []
         self.model.eval()
-        for iteration, (X, Y) in enumerate(dataloader):
+        for iteration, (X, mask_original) in enumerate(dataloader):
             
             mask_original = 1 - (1 * (torch.isnan(X)))
             mask_original = mask_original.float().to(self.device)
@@ -208,7 +225,7 @@ class Trainer():
         optimizer.zero_grad()
         
         self.model.train()
-        for iteration, (X, Y) in enumerate(dataloader):
+        for iteration, (X, mask_original) in enumerate(dataloader):
             
             mask_original = 1 - (1 * (torch.isnan(X)))
             mask_original = mask_original.float().to(self.device)
@@ -289,12 +306,12 @@ class Trainer():
                 learning_rate = optimizer.param_groups[0]['lr']
                 print(f"learning rate in epoch {it} = {learning_rate} ")
                 
-                train_loss, masked_train_loss, unmasked_train_loss = self.train_one_epoch(dataloader=get_data(data_splits["train_X"], data_splits["train_y"]), 
+                train_loss, masked_train_loss, unmasked_train_loss = self.train_one_epoch(dataloader=self.get_data_PT(data_splits["train_X"], "train"), 
                                                                                           split='train', 
                                                                                           optimizer=optimizer,
                                                                                           scheduler=model_scheduler,
                                                                                           masked_penalize=masked_penalize)
-                val_loss, masked_val_loss, unmasked_val_loss, preds, gt = self.val_one_epoch(dataloader=get_data(data_splits["train_X"], data_splits["train_y"]),
+                val_loss, masked_val_loss, unmasked_val_loss, preds, gt = self.val_one_epoch(dataloader=self.get_data_PT(data_splits["val_X"], "val"),
                                                                                   split='val', 
                                                                                   masked_penalize=masked_penalize)
                 
@@ -355,7 +372,7 @@ class Trainer():
         
         train_loader, vali_loader, test_loader = data_generator(self.sourcedata_path,
                                                                 self.targetdata_path, 
-                                                                self.configs, 
+                                                                # self.configs, 
                                                                  self.trial,
                                                                 training_mode='fine_tune', 
                                                                
@@ -549,7 +566,7 @@ class Trainer():
     def test(self):
         _, _, test_loader = data_generator(self.sourcedata_path,
                                             self.targetdata_path, 
-                                            self.configs, 
+                                            # self.configs, 
                                            self.trial,
                                             training_mode='fine_tune', 
                     

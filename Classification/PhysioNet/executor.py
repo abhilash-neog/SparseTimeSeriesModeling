@@ -88,7 +88,7 @@ parser.add_argument('--pretrain_epochs', type=int, default=100, help='dropout')
 parser.add_argument('--finetune_epochs', type=int, default=100, help='dropout')
 
 # GPU
-parser.add_argument('--device', type=str, default='3', help='cuda device')
+parser.add_argument('--device', type=str, default='0', help='cuda device')
 
 
 args = parser.parse_args()
@@ -99,44 +99,44 @@ num_feats={
     'SleepEEG':1,
     'Gesture': 3,
     'EMG':1,
-    'FD-B':1
+    'FD-B':1,
     "PhysioNet": 37
 }
 
-if args.pretrain_dataset == 'SleepEEG':
-    args.seq_len = 178
-    configs=SConfigs()
-elif args.pretrain_dataset=='Epilepsy':
-    args.seq_len = 178
-    configs=EConfigs()
-elif args.pretrain_dataset=='Gesture':
-    args.seq_len = 178
-    configs=GConfigs()
-elif args.pretrain_dataset=='EMG':
-    args.seq_len = 178
-    configs=EMConfigs()
-elif args.pretrain_dataset=='FD-B':
-    args.seq_len = 178
-    configs=FDBConfigs()
-else:
-    print("Wrong dataset")
+# if args.pretrain_dataset == 'SleepEEG':
+#     args.seq_len = 178
+#     configs=SConfigs()
+# elif args.pretrain_dataset=='Epilepsy':
+#     args.seq_len = 178
+#     configs=EConfigs()
+# elif args.pretrain_dataset=='Gesture':
+#     args.seq_len = 178
+#     configs=GConfigs()
+# elif args.pretrain_dataset=='EMG':
+#     args.seq_len = 178
+#     configs=EMConfigs()
+# elif args.pretrain_dataset=='FD-B':
+#     args.seq_len = 178
+#     configs=FDBConfigs()
+# else:
+#     print("Wrong dataset")
 
     
 '''
 set num of target classes
 '''
-if args.target_dataset == 'SleepEEG':
-    configs.num_classes_target=5
-elif args.target_dataset=='Epilepsy':
-    configs.num_classes_target=2
-elif args.target_dataset=='Gesture':
-    configs.num_classes_target=8
-elif args.target_dataset=='EMG':
-    configs.num_classes_target=3
-elif args.target_dataset=='FD-B':
-    configs.num_classes_target=3
-else:
-    print("Wrong dataset")
+# if args.target_dataset == 'SleepEEG':
+#     configs.num_classes_target=5
+# elif args.target_dataset=='Epilepsy':
+#     configs.num_classes_target=2
+# elif args.target_dataset=='Gesture':
+#     configs.num_classes_target=8
+# elif args.target_dataset=='EMG':
+#     configs.num_classes_target=3
+# elif args.target_dataset=='FD-B':
+#     configs.num_classes_target=3
+# else:
+#     print("Wrong dataset")
 
 '''
 set the cuda device
@@ -148,7 +148,9 @@ data_splits, utils = dh.handle()
 
 if args.task_name=='pretrain':
     
-    model = MaskedAutoencoder(args=args, data_config=configs, num_feats=num_feats[args.target_dataset])
+    model = MaskedAutoencoder(args=args, 
+        # data_config=configs, 
+        num_feats=num_feats[args.target_dataset])
 
     trainer = Trainer(args=args, model=model)
     
@@ -170,7 +172,9 @@ elif args.task_name=='finetune':
     
     load_model_path = os.path.join(args.pretrain_checkpoints_dir, args.pretrain_dataset + "_v" + str(args.trial), "ckpt_best_" + args.fraction+".pth")
     
-    model = MaskedAutoencoder(args=args, data_config=configs, num_feats=num_feats[args.target_dataset]).to(args.device)
+    model = MaskedAutoencoder(args=args, 
+        # data_config=configs, 
+        num_feats=num_feats[args.target_dataset]).to(args.device)
     
     model = transfer_weights(load_model_path, model, device=args.device)
     
