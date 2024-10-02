@@ -31,7 +31,7 @@ warnings.filterwarnings('ignore')
 REMOVE NAME FROM THE CODE
 '''
 
-fix_seed = 2023
+fix_seed = 2020
 random.seed(fix_seed)
 torch.manual_seed(fix_seed)
 np.random.seed(fix_seed)
@@ -45,7 +45,7 @@ parser.add_argument('--task_name', type=str, required=True, default='pretrain', 
 # data loader
 parser.add_argument('--clf_data_path', default='/raid/abhilash/classification_datasets/', type=str, help='Dataset of choice: SleepEEG, FD_A, HAR, ECG')
 parser.add_argument('--pretrain_dataset', type=str, default='Epilepsy', help='name of the data file')
-parser.add_argument('--target_dataset', type=str, default='Epilepsy', help='name of the data file')
+parser.add_argument('--target_dataset', type=str, default='PhysioNet', help='name of the data file')
 parser.add_argument('--training_mode', default='pre_train', type=str, help='pre_train, fine_tune')
 
 # model loader
@@ -156,6 +156,10 @@ if args.task_name=='pretrain':
     
     if not os.path.exists(args.pretrain_checkpoints_dir):
         os.makedirs(args.pretrain_checkpoints_dir)
+
+    # flops, params = get_model_complexity_info(model, (7672, 48, 37), as_strings = True, backend = "aten", verbose = True)
+    # print(f'Pretraining FLOPs: {flops}')
+    # print(f'Pretraining Parameters: {params}')
     
     history, model = trainer.pretrain(data_splits)
     
@@ -179,12 +183,12 @@ elif args.task_name=='finetune':
     model = transfer_weights(load_model_path, model, device=args.device)
     
     trainer = Trainer(args=args, model=model)
-    model = trainer.finetune()
+    model = trainer.finetune(data_splits, args)
     
     save_model_path = os.path.join(args.finetune_checkpoints_dir, args.target_dataset +  "_v" + str(args.trial), "ckpt_latest_" +args.fraction+".pth")
     torch.save(model, save_model_path)
     
-    total_loss, total_acc, total_auc, total_prc, trgs, performance = trainer.test()
+    total_loss, total_acc, total_auc, total_prc, trgs, performance = trainer.test(data_splits)
     
     output_path = os.path.join(args.output_path, args.target_dataset)
     if not os.path.exists(output_path):
@@ -195,5 +199,7 @@ elif args.task_name=='finetune':
         file.write(f"F1-score: {performance['F1']}\n")
         file.write(f"precision: {performance['precision']}\n")
         file.write(f"recall: {performance['recall']}\n")
+        file.write(f"total roc-auc: {performance['total_auc']}\n")
+        file.write(f"total pr-auc: {performance['total_prc']}\n")
     
 print(f"Done with model {args.task_name} ")

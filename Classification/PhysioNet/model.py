@@ -237,11 +237,17 @@ class MaskedAutoencoder(nn.Module):
     def cross_attention(self, x, m):
         
         batch_size, window_size, num_feat, d = x.shape
+        # print("self.var_query:", self.var_query.shape)
         var_query = self.var_query.repeat_interleave(batch_size*window_size, dim=0)
+        # print("var_query after:", var_query.shape)
         
+        # print("x before view:", x.shape)
         x = x.view(-1, num_feat, d)
+        # print("x after view:", x.shape)
         
+        # print("m before view:", m.shape)
         m_ = copy.deepcopy(m.view(-1, num_feat))
+        # print("m_ after view:", m_.shape)
         
         attn_out, _ = self.mhca(var_query, x, x, key_padding_mask=m_)
         

@@ -28,6 +28,9 @@ from tools import EarlyStopping, adjust_learning_rate, transfer_weights
 from sklearn.metrics import roc_auc_score, average_precision_score, accuracy_score, precision_score, f1_score, recall_score
 from data_provider.clf_dataloader import data_generator
 
+
+from ptflops import get_model_complexity_info
+
 eps = 1e-6
 
 
@@ -75,6 +78,17 @@ class ModelPlugins():
 
         decoder_pos_embed = get_1d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], self.window_len, cls_token=True)
         self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
+
+class ModelWrapper(nn.Module):
+    def __init__(self, model, mask_original, mpl):
+        super(ModelWrapper, self).__init__()
+        self.model = model
+        self.mask_original = mask_original
+        self.mpl = mpl
+
+    def forward(self, input_tensor):
+        # Forward pass through the original model with additional arguments
+        return self.model(input_tensor, self.mask_original, self.mpl)
 
 class Trainer():
     
@@ -168,6 +182,23 @@ class Trainer():
             shuffle=False,
             batch_size=self.batch_size)
         return dataloader
+
+    def get_data_FT(self, X, Y, split_flag):
+        
+        M = 1 - (1 * (torch.isnan(X)))
+        M = M.float()
+        
+        X = torch.nan_to_num(X)
+        
+        '''
+        Dataloader
+        '''
+        dataset = MAEDataset_FT(X, Y, M)
+        dataloader = DataLoader(
+            dataset,
+            shuffle=False,
+            batch_size=self.batch_size)
+        return dataloader
     
     def val_one_epoch(self, dataloader, split, masked_penalize):
         
@@ -175,7 +206,7 @@ class Trainer():
         predictions = []
         gt = []
         self.model.eval()
-        for iteration, (X, mask_original) in enumerate(dataloader):
+        for iteration, (X, mask_original) in tqdm(enumerate(dataloader)):
             
             mask_original = 1 - (1 * (torch.isnan(X)))
             mask_original = mask_original.float().to(self.device)
@@ -218,21 +249,42 @@ class Trainer():
         self.model.train()
         return batch_loss, masked_batch_loss, unmasked_batch_loss, predictions, original
         
-    def train_one_epoch(self, dataloader, split, masked_penalize, optimizer, scheduler):
+    def train_one_epoch(self, dataloader, split, masked_penalize, optimizer, scheduler, computed_flops):
         
         batch_loss, masked_batch_loss, unmasked_batch_loss = 0, 0, 0
         
         optimizer.zero_grad()
         
         self.model.train()
-        for iteration, (X, mask_original) in enumerate(dataloader):
+
+        for iteration, (X, mask_original) in tqdm(enumerate(dataloader)):
             
             mask_original = 1 - (1 * (torch.isnan(X)))
             mask_original = mask_original.float().to(self.device)
             X = torch.nan_to_num(X).float().to(self.device)
             # print(f"shape of X = {X.shape}")
+
+            if not computed_flops:
+                # Create a wrapped model instance
+                model_wrapper = ModelWrapper(self.model, mask_original, self.mpl)
+                
+                # Compute FLOPs for the first batch
+                input_tensor = X  # Use the first batch input for FLOPs calculation
+                input_shape = tuple(input_tensor.shape[1:])  # Ensure it's explicitly a tuple (channels, seq_len)
+
+                # Now pass the wrapped model to get_model_complexity_info
+                print("input_shape: ", input_shape)
+                flops, params = get_model_complexity_info(
+                    model_wrapper,
+                    input_res=input_shape,  # Pass the input shape as a tuple
+                    as_strings=True,
+                    print_per_layer_stat=False
+                )
+                print(f'FLOPs for this model: {flops}')
+                print(f'Parameters for this model: {params}')
+                computed_flops = True
+
             pred, mask, nask = self.model(X, mask_original, self.mpl)
-            
             
             loss, masked_loss, unmasked_loss = self.model.forward_loss(data=X, 
                                                                        pred=pred, 
@@ -300,7 +352,7 @@ class Trainer():
         with trange(self.args.pretrain_epochs) as tr:
  
             # torch.cuda.empty_cache()
-            
+            computed_flops = False
             for it in tr:
                 
                 learning_rate = optimizer.param_groups[0]['lr']
@@ -310,7 +362,13 @@ class Trainer():
                                                                                           split='train', 
                                                                                           optimizer=optimizer,
                                                                                           scheduler=model_scheduler,
-                                                                                          masked_penalize=masked_penalize)
+                                                                                          masked_penalize=masked_penalize,
+                                                                                          computed_flops = computed_flops)
+
+                if it == 0:
+                    computed_flops = True
+
+
                 val_loss, masked_val_loss, unmasked_val_loss, preds, gt = self.val_one_epoch(dataloader=self.get_data_PT(data_splits["val_X"], "val"),
                                                                                   split='val', 
                                                                                   masked_penalize=masked_penalize)
@@ -368,16 +426,16 @@ class Trainer():
             
         return losses, self.model
         
-    def finetune(self):
+    def finetune(self, data_splits, args):
         
-        train_loader, vali_loader, test_loader = data_generator(self.sourcedata_path,
-                                                                self.targetdata_path, 
-                                                                # self.configs, 
-                                                                 self.trial,
-                                                                training_mode='fine_tune', 
+        # train_loader, vali_loader, test_loader = data_generator(self.sourcedata_path,
+        #                                                         self.targetdata_path, 
+        #                                                         # self.configs, 
+        #                                                          self.trial,
+        #                                                         training_mode='fine_tune', 
                                                                
-                                                                subset=False,
-                                                               fraction=self.args.fraction)
+        #                                                         subset=False,
+        #                                                        fraction=self.args.fraction)
         
         path = os.path.join(self.args.finetune_checkpoints_dir, self.args.target_dataset + "_v" + str(self.args.trial))
         if not os.path.exists(path):
@@ -386,6 +444,11 @@ class Trainer():
         torch.autograd.set_detect_anomaly(True)
         
         early_stopping = EarlyStopping(patience=self.args.patience, verbose=True, args=self.args)
+
+        train_loader = self.get_data_FT(data_splits["train_X"], data_splits["train_Y"], "train")
+        val_loader = self.get_data_FT(data_splits["val_X"], data_splits["val_Y"], "val")
+        test_loader = self.get_data_FT(data_splits["test_X"], data_splits["test_Y"], "test")
+
         train_steps = len(train_loader)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.args.lr)
         criterion = nn.CrossEntropyLoss()
@@ -394,6 +457,8 @@ class Trainer():
                                             pct_start=self.args.pct_start,
                                             epochs=self.args.finetune_epochs,
                                             max_lr=self.args.lr)
+
+        computed_flops = False
         
         with trange(self.args.finetune_epochs) as tr:
             
@@ -415,12 +480,26 @@ class Trainer():
                 optimizer.zero_grad()
 
                 self.model.train()
-                for iteration, (X, labels) in enumerate(train_loader):
+                for iteration, (X, labels, mask_original) in tqdm(enumerate(train_loader)):
                     
                     mask_original = 1 - (1 * (torch.isnan(X)))
                     mask_original = mask_original.float().to(self.device)
                     X = torch.nan_to_num(X).float().to(self.device)
                     labels = labels.long().to(self.device)
+
+                    # Compute FLOPs for the first batch
+                    if not computed_flops:
+                        model_wrapper = ModelWrapper(self.model, mask_original, self.mpl)
+                        input_shape = tuple(X.shape[1:])  # Exclude batch size
+                        flops, params = get_model_complexity_info(
+                            model_wrapper,
+                            input_res=input_shape,
+                            as_strings=True,
+                            print_per_layer_stat=False
+                        )
+                        print(f'FLOPs for this model: {flops}')
+                        print(f'Parameters for this model: {params}')
+                        computed_flops = True  # Set the flag to prevent further FLOP computations
 
                     predictions = self.model(X, mask_original, self.mpl)
 
@@ -477,18 +556,18 @@ class Trainer():
 
                 scheduler.step()
                 
-                vali_loss, _, _, _, _, vali_F1 = self.vali(vali_loader, criterion)
+                vali_loss, _, _, _, _, vali_F1 = self.vali(val_loader, criterion)
                 test_loss, _, _, _, _, test_F1 = self.vali(test_loader, criterion)
             
                 print(
                 "Epoch: {0} | Train F1: {1:.7f} Vali F1: {2:.7f} Test F1: {3:.7f}".format(
                     it + 1, F1, vali_F1, test_F1))
                 early_stopping(vali_loss, self.model, path)
-                # if early_stopping.early_stop:
-                #     print("Early stopping")
-                #     break
+                if early_stopping.early_stop:
+                    print("Early stopping")
+                    break
                 
-                # adjust_learning_rate(optimizer, scheduler, it + 1, self.args)
+                adjust_learning_rate(optimizer, scheduler, it + 1, args)
                 
         best_model_path = path + '/' + 'checkpoint_' + self.args.fraction + '.pth'
         self.model = torch.load(best_model_path, map_location='cpu')
@@ -508,7 +587,7 @@ class Trainer():
         print(f"Length of vali loader = {len(vali_loader)}")
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, labels) in enumerate(vali_loader):
+            for i, (batch_x, labels, mask_original) in enumerate(vali_loader):
                 
                 mask_original = 1 - (1 * (torch.isnan(batch_x)))
                 mask_original = mask_original.float().to(self.device)
@@ -563,15 +642,16 @@ class Trainer():
         self.model.train()
         return total_loss, total_acc, total_auc, total_prc, trgs, F1
     
-    def test(self):
-        _, _, test_loader = data_generator(self.sourcedata_path,
-                                            self.targetdata_path, 
-                                            # self.configs, 
-                                           self.trial,
-                                            training_mode='fine_tune', 
+    def test(self, data_splits):
+        # _, _, test_loader = data_generator(self.sourcedata_path,
+        #                                     self.targetdata_path, 
+        #                                     # self.configs, 
+        #                                    self.trial,
+        #                                     training_mode='fine_tune', 
                     
-                                            subset=False,
-                                            fraction=self.args.fraction)
+        #                                     subset=False,
+        #                                     fraction=self.args.fraction)
+
         
         preds = []
         trues = []
@@ -590,7 +670,7 @@ class Trainer():
             
             labels_numpy_all, pred_numpy_all = np.zeros(1), np.zeros(1)
             
-            for i, (data, labels) in enumerate(test_loader):
+            for i, (data, labels, mask_original) in enumerate(self.get_data_FT(data_splits["test_X"], data_splits["test_Y"], "test")):
                 
                 mask_original = 1 - (1 * (torch.isnan(data)))
                 mask_original = mask_original.float().to(self.device)
@@ -610,11 +690,13 @@ class Trainer():
                 
                 try:
                     auc_bs = roc_auc_score(onehot_label.detach().cpu().numpy(), pred_numpy, average="macro", multi_class="ovr")
+                    # auc_bs = roc_auc_score(labels.detach().cpu().numpy(), pred_nump[:, 1])
                 except:
                     auc_bs = 0.0
 
                 try:
                     prc_bs = average_precision_score(onehot_label.detach().cpu().numpy(), pred_numpy)
+                    # prc_bs = average_precision_score(labels().detach().cpu().numpy(), pred_numpy[:, 1])
                 except:
                     prc_bs = 0.0
 
