@@ -1,16 +1,8 @@
-from data_provider.data_loader import Dataset_ETT_hour, Dataset_ETT_minute, Dataset_Custom, Dataset_Pred, Dataset_Lake
+from data_provider.data_loader import Dataset_Lake
 from torch.utils.data import DataLoader
 
 data_dict = {
-    'ETTh1': Dataset_ETT_hour,
-    'ETTh2': Dataset_ETT_hour,
-    'ETTm1': Dataset_ETT_minute,
-    'ETTm2': Dataset_ETT_minute,
-    'weather': Dataset_Custom,
-    'traffic': Dataset_Custom,
-    'electricity': Dataset_Custom,
     'Lake': Dataset_Lake,
-    'Mendota': Dataset_Lake
 }
 
 

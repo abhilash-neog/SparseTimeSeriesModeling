@@ -415,7 +415,6 @@ class Trainer():
         
         masked_penalize=True
         print("Mask Penalize Has been set to True.")
-        # lookback = args['lookback_window']
         lookback = self.seq_len
         
         self.model.set_lookbackwindow(lookback, self.pred_len)
@@ -449,7 +448,6 @@ class Trainer():
         
         early_stopping = EarlyStopping(patience=self.args['patience'], verbose=True)
         optimizer = self.select_optimizer_()
-        # loss_scaler = self.select_scaler_()
         train_steps = len(self.train_dataloader)
         scheduler = lr_scheduler.OneCycleLR(optimizer=optimizer,
                                             steps_per_epoch=train_steps,
@@ -458,7 +456,6 @@ class Trainer():
                                             max_lr=self.lr)
         
         with trange(self.max_epochs) as tr:
-            # torch.cuda.empty_cache()
             
             for it in tr:
                 

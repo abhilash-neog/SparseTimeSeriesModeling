@@ -492,6 +492,5 @@ class MaskedAutoencoder(nn.Module):
         elif self.task_name=='finetune':
             latent, means, std = self.forward_encoder(data, miss_idx)
             latent = latent[:, 1:, :]
-            # pred = self.dfh(latent, means, std)
-            pred = self.fh(latent, means, std)[:, -self.pred_len:, :]
+            pred = self.fh(latent, means, std)
             return pred

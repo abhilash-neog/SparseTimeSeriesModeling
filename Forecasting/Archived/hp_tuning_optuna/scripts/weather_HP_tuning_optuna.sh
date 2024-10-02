@@ -1,5 +1,5 @@
 DATASET="weather"
-SOURCE_FILE="weather.csv"
+SOURCE_FILE="weather"
 
 PRETRAIN_EPOCHS=50
 FINETUNE_EPOCHS=10
@@ -11,14 +11,14 @@ STUDY_NAME=$4
 TRIALS=$5
 
 pred_len=720
-OUTPUT_PATH="./outputs/weather/"
-PRETRAIN_CKPT_DIR="/raid/abhilash/optuna_pretrain_checkpoints_weather/"
-FINETUNE_CKPT_DIR="/raid/abhilash/optuna_finetune_checkpoints_weather/"
+OUTPUT_PATH="./outputs/weather_new/"
+PRETRAIN_CKPT_DIR="/raid/abhilash/optuna_pretrain_checkpoints_weather_new/"
+FINETUNE_CKPT_DIR="/raid/abhilash/optuna_finetune_checkpoints_weather_new/"
 
 ROOT_PATH="/raid/abhilash/forecasting_datasets/weather/"
 
 # PRETRAIN
-python -u executor_trials_larger.py \
+python -u executor.py \
     --task_name pretrain \
     --device $DEVICE \
     --root_path $ROOT_PATH \

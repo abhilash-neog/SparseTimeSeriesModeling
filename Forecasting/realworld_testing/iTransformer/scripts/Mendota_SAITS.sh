@@ -17,9 +17,8 @@ data_name=Lake
 seq_len=21
 
 model_name=iTransformer
-cd ..
 
-for pred_len in 7; do
+for pred_len in 7 14 21; do
     python -u run.py \
     --target 'avg_chlor_rfu' 'avg_do_wtemp'\
     --freq d \
@@ -36,21 +35,23 @@ for pred_len in 7; do
     --seq_len $seq_len \
     --pred_len $pred_len \
     --e_layers 2 \
-    --enc_in 7 \
-    --dec_in 7 \
-    --c_out 7 \
+    --enc_in 16 \
+    --dec_in 16 \
+    --c_out 16 \
     --des 'Exp' \
-    --d_model 128 \
+    --d_model 32 \
     --d_ff 128 \
     --itr 1 \
     --gpu $DEVICES \
     --checkpoints $CHECKPOINT \
+    --batch_size 16 \
     --trial $TRIAL \
-    --train_epochs 5\
+    --train_epochs 100\
     --learning_rate 0.0001 \
     --checkpoints $CHECKPOINT \
     --output_path $OUTPUT_PATH
 done
+
 
 
 # python -u run.py \

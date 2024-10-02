@@ -1,5 +1,5 @@
 DATASET="ETT"
-SOURCE_FILE="ETTm2.csv"
+SOURCE_FILE="ETTm2"
 
 PRETRAIN_EPOCHS=50
 FINETUNE_EPOCHS=10
@@ -11,14 +11,14 @@ STUDY_NAME=$4
 TRIALS=$5
 
 pred_len=720
-OUTPUT_PATH="./outputs/ETTm2/"
-PRETRAIN_CKPT_DIR="/raid/abhilash/optuna_pretrain_checkpoints_ETTm2/"
-FINETUNE_CKPT_DIR="/raid/abhilash/optuna_finetune_checkpoints_ETTm2/"
+OUTPUT_PATH="./outputs/ETTm2_new/"
+PRETRAIN_CKPT_DIR="/raid/abhilash/optuna_pretrain_checkpoints_ETTm2_new/"
+FINETUNE_CKPT_DIR="/raid/abhilash/optuna_finetune_checkpoints_ETTm2_new/"
 
 ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
 # PRETRAIN
-python -u executor_trials.py \
+python -u executor.py \
     --task_name pretrain \
     --device $DEVICE \
     --root_path $ROOT_PATH \
@@ -31,7 +31,6 @@ python -u executor_trials.py \
     --pretrain_epochs $PRETRAIN_EPOCHS \
     --finetune_epochs $FINETUNE_EPOCHS \
     --mask_ratio 0.50 \
-    --lr 0.0001 \
     --batch_size 64 \
     --project_name ett \
     --pretrain_checkpoints_dir $PRETRAIN_CKPT_DIR \

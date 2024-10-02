@@ -26,11 +26,18 @@ class ETTHour():
                              'test':0.2}
         self.args = args
 
-    def read_data(self):
+    def read_data(self, gt=None):
         
-        filepath = os.path.join(self.args.root_path, self.args.source_filename)
+        if gt is not None:
+            root_path=self.args.gt_root_path
+            data_path=self.args.gt_source_filename
+        else:
+            root_path=self.args.root_path
+            data_path=self.args.source_filename
+            
+        filepath = os.path.join(root_path, data_path)
         
-        df = pd.read_csv(filepath)#+'.csv')
+        df = pd.read_csv(filepath+'.csv')
 
         self.features_col = df.columns[1:]
         self.date_col = df.columns[0]
@@ -68,11 +75,18 @@ class ETTMin():
                              'test':0.2}
         self.args = args
 
-    def read_data(self):
+    def read_data(self, gt=None):
         
-        filepath = os.path.join(self.args.root_path, self.args.source_filename)
+        if gt is not None:
+            root_path=self.args.gt_root_path
+            data_path=self.args.gt_source_filename
+        else:
+            root_path=self.args.root_path
+            data_path=self.args.source_filename
+            
+        filepath = os.path.join(root_path, data_path)
         
-        df = pd.read_csv(filepath)#+'.csv')
+        df = pd.read_csv(filepath+'.csv')
 
         self.features_col = df.columns[1:]
         self.date_col = df.columns[0]
@@ -113,11 +127,18 @@ class Custom():
         self.args = args
         self.target = target
         
-    def read_data(self):
+    def read_data(self, gt=None):
         
-        filepath = os.path.join(self.args.root_path, self.args.source_filename)
+        if gt is not None:
+            root_path=self.args.gt_root_path
+            data_path=self.args.gt_source_filename
+        else:
+            root_path=self.args.root_path
+            data_path=self.args.source_filename
         
-        df = pd.read_csv(filepath)#+'.csv')
+        filepath = os.path.join(root_path, data_path)
+        
+        df = pd.read_csv(filepath+'.csv')
 
         self.features_col = df.columns[1:]
         self.date_col = df.columns[0]
@@ -155,29 +176,24 @@ class Custom():
         df = df[self.features_col]
         df = pd.concat([df, df_date], axis=1)
         return df
-        
-    
+
 class DataHandler():
     
     def __init__(self, args):
         
         data_map = {
-            'ETTh1': ETTHour,
             'ETTh2': ETTHour,
-            'ETTm1': ETTMin,
             'ETTm2': ETTMin,
             'weather': Custom,
-            'traffic': Custom,
-            'electricity': Custom
         }
         
         self.args = args
         if args.dataset=='ETT':
-            self.dataClass = data_map[args.source_filename[:-4]]
+            self.dataClass = data_map[args.source_filename]
         else:
             self.dataClass = data_map[args.dataset]
             
-    def handle(self):
+    def handle(self, gt=None):
         
         self.handler = self.dataClass(self.args)
         
@@ -198,11 +214,11 @@ class DataHandler():
                       date_col=self.handler.date_col, 
                       args=self.args,
                       stride=1)
-        return utils
+        
         '''
         create train and val set
         '''
-        train_df, val_df, test_df = utils.split_data(df_X, handler.split_ratios)
+        train_df, val_df, test_df = utils.split_data(df_X, self.handler.split_ratios)
         
         '''
         create windowed dataset or load one 

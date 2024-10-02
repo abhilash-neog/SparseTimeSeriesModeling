@@ -26,16 +26,9 @@ from data_handler import DataHandler
 
 warnings.filterwarnings('ignore')
 
-'''
-REMOVE NAME FROM THE CODE
-'''
-#2023
-
-
 
 parser = argparse.ArgumentParser(description='benchmarktesting')
 
-# basic config
 parser.add_argument('--task_name', type=str, required=True, default='pretrain', choices=['pretrain', 'finetune'], help='task name, options:[pretrain, finetune]')
 parser.add_argument('--seed', type=int, default=2023)
 
@@ -61,7 +54,7 @@ parser.add_argument('--label_len', type=int, default=48, help='window for pretra
 parser.add_argument('--mask_ratio', type=float, default=0.5, help='mask ratio')
 parser.add_argument('--num_samples', type=int, default=10, help='number of sample regions to plot for each feature during pretraining')
 parser.add_argument('--num_windows', type=int, default=25, help='number of windows to generate merged plots')
-parser.add_argument('--feature_wise_mse', type=str, default='True', help='whether to plot feature-wise mse')
+parser.add_argument('--feature_wise_mse', type=str, default='False', help='whether to plot feature-wise mse')
 
 # finetuning task
 parser.add_argument('--pred_len', type=int, default=720, help='past sequence length')
@@ -86,7 +79,8 @@ parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--accum_iter', type=int, default=1, help='accumulation iteration for gradient accumulation')
 parser.add_argument('--min_lr', type=float, default=1e-5, help='min learning rate')
 parser.add_argument('--weight_decay', type=float, default=0.001)
-parser.add_argument('--lr', type=float, default=0.0001)
+parser.add_argument('--pretrain_lr', type=float, default=0.0001)
+parser.add_argument('--finetune_lr', type=float, default=0.0001)
 parser.add_argument('--blr', type=float, default=1e-4, help='base learning rate')
 parser.add_argument('--warmup_epochs', type=int, default=5, help='number of warmup epochs for learning rate')
 parser.add_argument('--pretrain_epochs', type=int, default=50)
@@ -100,6 +94,7 @@ parser.add_argument('--device', type=str, default='3', help='cuda device')
 parser.add_argument('--db', type=str, default='db.sqlite3', help='db file')
 parser.add_argument('--stats_file', type=str, default='study_stats.txt', help='output stats file')
 parser.add_argument('--study_name', type=str, default='h1tuning', help='name of the study')
+parser.add_argument('--ntrials', type=int, default=1)
 
 # weights and biases
 parser.add_argument('--project_name', type=str, default='ett', help='project name in wandb')
@@ -117,12 +112,7 @@ np.random.seed(fix_seed)
 set the cuda device
 '''
 args.device = 'cuda:' + args.device if torch.cuda.is_available() else 'cpu'
-    
-'''
-read and process data
-'''
-dh = DataHandler(args) 
-utils = dh.handle()
+
 
 base_pretrain_run_name = args.pretrain_run_name
 base_finetune_run_name = args.finetune_run_name
@@ -132,6 +122,13 @@ def objective(trial):
     Pretrain
     '''
     args.task_name='pretrain'
+    
+    '''
+    read and process data
+    '''
+    dh = DataHandler(args)
+    train_X, val_X, test_X, utils = dh.handle()
+
     model = MaskedAutoencoder(utils, args, trial, num_feats=len(dh.handler.features_col))
 
     trainer = Trainer(args=vars(args), model=model, utils=utils)
@@ -143,14 +140,21 @@ def objective(trial):
     if not os.path.exists(args.pretrain_checkpoints_dir):
         os.makedirs(args.pretrain_checkpoints_dir)
 
-    history, model = trainer.pretrain()
+    history, model = trainer.pretrain(train_X, val_X, test_X)
 
     model_path = os.path.join(args.pretrain_checkpoints_dir, args.ckpt_name)
     
     '''
     Finetune
     '''
+    
     args.task_name='finetune'
+    
+    '''
+    read and process data
+    '''
+    dh = DataHandler(args)
+    train_X, val_X, test_X, utils = dh.handle()
     
     args.finetune_run_name = "{}_{}_{}".format(base_finetune_run_name, str(datetime.datetime.now().date()), str(datetime.datetime.now().time()))
 
@@ -168,9 +172,10 @@ def objective(trial):
         fine-tune an already pretrained model
         '''
         model = transfer_weights(load_model_path, model, device=args.device)
+        print(f"Transferred pretrained weights")
         
     trainer = Trainer(args=vars(args), model=model, utils=utils)
-    val_mse = trainer.finetune(trial)
+    val_mse = trainer.finetune(trial, train_X, val_X, test_X)
     return val_mse
     
 
@@ -184,7 +189,7 @@ except:
     print(f"Creating a new study")
     study = optuna.create_study(storage="sqlite:///"+args.db, sampler=RandomSampler(seed=args.seed), study_name=args.study_name, direction="minimize")
     
-study.optimize(objective, n_trials=50)
+study.optimize(objective, n_trials=args.ntrials)
 
 pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
 complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
