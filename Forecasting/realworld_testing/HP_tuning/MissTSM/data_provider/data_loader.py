@@ -1,19 +1,18 @@
 import os
-import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import Dataset, DataLoader
+import numpy as np
+from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
 from utils.timefeatures import time_features
 import warnings
 
 warnings.filterwarnings('ignore')
-
-
+  
 class Dataset_Lake(Dataset):
     def __init__(self, root_path, flag='train', size=None,
                  features='MS', data_path='FCR_SAITS.csv',
-                 target='daily_median_chla_interp_ugL', scale=True, timeenc=0, freq='h'):
+                 target='daily_median_chla_interp_ugL', scale=True, timeenc=1, freq='h'):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -35,6 +34,7 @@ class Dataset_Lake(Dataset):
         self.scale = scale
         self.timeenc = timeenc
         self.freq = freq
+        self.flag=flag
 
         self.root_path = root_path
         self.data_path = data_path
@@ -49,14 +49,12 @@ class Dataset_Lake(Dataset):
         df_raw.columns: ['date', ...(other features), target feature]
         '''
         cols = list(df_raw.columns)
-        for col in self.target:
-            cols.remove(col)
-
-        cols.remove('date')
-        df_raw = df_raw[['date'] + cols + self.target]
-        # print(df_raw.columns)
-        # exit(0)
-        num_train = int(len(df_raw) * 0.6)
+        # print(f'columns are: {cols}')
+        cols.remove(self.target)
+        cols.remove('Date')
+        df_raw = df_raw[['Date'] + cols + [self.target]]
+        # print(cols)
+        num_train = int(len(df_raw) * 0.6) # 6:2:2 is the split
         num_test = int(len(df_raw) * 0.2)
         num_vali = len(df_raw) - num_train - num_test
 
@@ -66,33 +64,31 @@ class Dataset_Lake(Dataset):
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
 
-        if self.features == 'M' or self.features == 'MS' or self.features == 'MD':
+        if self.features == 'M' or self.features == 'MS':
             cols_data = df_raw.columns[1:]
             df_data = df_raw[cols_data]
         elif self.features == 'S':
-            df_data = df_raw[[self.target[1]]]
+            df_data = df_raw[[self.target]]
 
         if self.scale:
             train_data = df_data[border1s[0]:border2s[0]]
             self.scaler.fit(train_data.values)
-            # print(self.scaler.mean_)
-            # exit()
             data = self.scaler.transform(df_data.values)
         else:
             data = df_data.values
 
-        df_stamp = df_raw[['date']][border1:border2]
-        df_stamp['date'] = pd.to_datetime(df_stamp.date)
+        df_stamp = df_raw[['Date']][border1:border2]
+        df_stamp['Date'] = pd.to_datetime(df_stamp.Date)
         
         if self.timeenc == 0:
-            df_stamp['year'] = df_stamp.date.apply(lambda row: row.year, 1)
-            df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
-            df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
-            df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
+            df_stamp['year'] = df_stamp.Date.apply(lambda row: row.year, 1)
+            df_stamp['month'] = df_stamp.Date.apply(lambda row: row.month, 1)
+            df_stamp['day'] = df_stamp.Date.apply(lambda row: row.day, 1)
+            df_stamp['weekday'] = df_stamp.Date.apply(lambda row: row.weekday(), 1)
             # df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
-            data_stamp = df_stamp.drop(['date'], axis=1).values
+            data_stamp = df_stamp.drop(['Date'], axis=1).values
         elif self.timeenc == 1:
-            data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
+            data_stamp = time_features(pd.to_datetime(df_stamp['Date'].values), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0)
 
         self.data_x = data[border1:border2]
@@ -110,7 +106,19 @@ class Dataset_Lake(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
+        seq_x = torch.tensor(seq_x)
+        seq_y = torch.tensor(seq_y)
+        
+        maskX = 1 - (1 * (torch.isnan(seq_x)))
+        maskX = maskX.float()#.to(self.device)
+        
+        maskY = 1 - (1 * (torch.isnan(seq_y)))
+        maskY = maskY.float()
+        
+        seq_x = torch.nan_to_num(seq_x).float()
+        seq_y = torch.nan_to_num(seq_y).float()            
+        
+        return seq_x, seq_y, maskX, maskY #seq_x_mark, seq_y_mark
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1

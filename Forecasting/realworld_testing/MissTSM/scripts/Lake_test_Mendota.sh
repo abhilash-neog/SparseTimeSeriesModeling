@@ -1,4 +1,4 @@
-DATASET="Lake"
+DATASET="Mendota"
 PRETRAIN_EPOCHS=50
 FINETUNE_EPOCHS=100
 
@@ -7,9 +7,9 @@ enc_dim=$2
 enc_num_heads=$3
 enc_depth=$4
 
-OUTPUT_PATH="./outputs_${enc_dim}_${enc_num_heads}_${enc_depth}/Lake_v${TRIAL}/"
-root_path_name="/raid/sepideh/Project_MissTSM/FCR/"
-SOURCE_FILE="FCR_missing"
+OUTPUT_PATH="./outputs_${enc_dim}_${enc_num_heads}_${enc_depth}/Mendota_v${TRIAL}/"
+root_path_name="/raid/abhilash/real_world_datasets/mendota/"
+SOURCE_FILE="Mendota_missing_daily"
 
 seq_len=21
 
@@ -17,7 +17,7 @@ seq_len=21
 # python -u executor.py \
 #     --task_name pretrain \
 #     --device $DEVICE \
-#     --target 'daily_median_chla_interp_ugL' 'daily_median_watertemp_interp_degC'\
+#     --target 'avg_chlor_rfu' 'avg_do_wtemp'\
 #     --features MD\
 #     --root_path $root_path_name \
 #     --run_name "v${TRIAL}_pretrain_${DATASET}" \
@@ -26,7 +26,7 @@ seq_len=21
 #     --max_epochs $PRETRAIN_EPOCHS \
 #     --mask_ratio 0.50 \
 #     --lr 0.001 \
-#     --enc_in 15 \
+#     --enc_in 16 \
 #     --batch_size 8 \
 #     --seq_len $seq_len \
 #     --encoder_depth 2 \
@@ -36,7 +36,6 @@ seq_len=21
 #     --decoder_num_heads 8 \
 #     --decoder_embed_dim 8 \
 #     --project_name ett_masking \
-#     --trial $TRIAL \
 #     --dropout 0.05
 
 # FINETUNE WITH NON-FROZEN ENCODER
@@ -44,7 +43,7 @@ for pred_len in 7 14 21; do
     python -u executor.py \
         --task_name finetune \
         --device $DEVICE \
-        --target 'daily_median_chla_interp_ugL' 'daily_median_watertemp_interp_degC'\
+        --target 'avg_chlor_rfu' 'avg_do_wtemp'\
         --features MD\
         --root_path $root_path_name\
         --gt_root_path $root_path_name \
@@ -62,7 +61,7 @@ for pred_len in 7 14 21; do
         --encoder_num_heads $enc_num_heads \
         --encoder_embed_dim $enc_dim \
         --lr 0.0001 \
-        --enc_in 15 \
+        --enc_in 16 \
         --dropout 0.05 \
         --fc_dropout 0.005 \
         --batch_size 8 \

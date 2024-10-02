@@ -1,6 +1,8 @@
 import sys
 sys.path.insert(1, './utils/.')
 
+import optuna
+from optuna.trial import TrialState
 import math
 import torch
 import numpy as np
@@ -25,7 +27,7 @@ class DecoderWithLinearHead(nn.Module):
         self.encoder_embed_dim = args.encoder_embed_dim
         self.decoder_embed_dim = args.decoder_embed_dim
         self.decoder_num_heads = args.decoder_num_heads
-        self.mlp_ratio = args.mlp_ratio
+        self.mlp_ratio = args.mlp_ratio # need to get rid of the ViT blocks !!!!
         self.norm_layer = norm_layer
         self.decoder_depth = args.decoder_depth
         self.seq_len = args.seq_len
@@ -80,17 +82,20 @@ class DecoderWithLinearHead(nn.Module):
 
 class FlattenHead(nn.Module):
     
-    def __init__(self, args, num_feats):
+    def __init__(self, args, num_feats, trial, encoder_embed_dim):
         super().__init__()
         self.seq_len = args.seq_len
         self.pred_len = args.pred_len
         self.num_feats = num_feats
-        self.encoder_embed_dim = args.encoder_embed_dim
+        # self.encoder_embed_dim = args.encoder_embed_dim
+        self.encoder_embed_dim = encoder_embed_dim
         
         self.decoder_inp = nn.Linear(self.seq_len, self.pred_len, bias=True)
         self.decoder_pred = nn.Linear(self.encoder_embed_dim, self.num_feats, bias=True)
-        self.dropout = nn.Dropout(args.fc_dropout)
-
+        # self.dropout = nn.Dropout(args.fc_dropout)
+        dropout = trial.suggest_float("fc_dropout", args.fc_dropout_range[0], args.fc_dropout_range[1])
+        self.dropout = nn.Dropout(dropout)
+        
     def forward(self, x, means, std):  # [bs x seq_len x d_model]
         
         x = x.permute(0, 2, 1) # [bs x enc_embed_dim x seq_len]
@@ -101,8 +106,8 @@ class FlattenHead(nn.Module):
         
         x = self.dropout(x)
         
-        x = x * (std[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
-        x = x + (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
+        # x = x * (std[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
+        # x = x + (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
         return x
 
 class MaskedAutoencoder(nn.Module):
@@ -114,6 +119,7 @@ class MaskedAutoencoder(nn.Module):
     def __init__(self,
                  utils,
                  args,
+                 trial,
                  num_feats,
                  norm_layer=nn.LayerNorm, 
                  norm_field_loss=False,
@@ -132,15 +138,37 @@ class MaskedAutoencoder(nn.Module):
         # --------------------------------------------------------------------------
         # MAE encoder specifics
         # --------------------------------------------------------------------------
-        self.embed_dim = args.encoder_embed_dim
-        self.depth = args.encoder_depth
-        self.num_heads= args.encoder_num_heads
+        self.embed_dim = trial.suggest_categorical("encoder_embed_dim", args.encoder_embed_range)
+        
+        self.depth = trial.suggest_categorical("encoder_depth", args.encoder_depth_range)
+        
+        # enc_possible_heads = [h for h in range(4, args.encoder_embed_range[1]+1) if (self.embed_dim>h) and self.embed_dim % h == 0]
+        
+        self.num_heads = trial.suggest_categorical("encoder_num_heads", args.encoder_heads_range)
+        if (self.num_heads>self.embed_dim) or (self.embed_dim%self.num_heads) != 0:
+            print(f"Number of Encoder heads = {self.num_heads} || Encoder embedding dimension = {self.embed_dim} :: Pruning Trial")
+            raise optuna.exceptions.TrialPruned()
+        
+        # self.num_heads = trial.suggest_int("encoder_num_heads", args.encoder_heads_range[0], args.encoder_heads_range[1])
         self.mlp_ratio = args.mlp_ratio
-        self.decoder_embed_dim = args.decoder_embed_dim
-        self.decoder_num_heads = args.decoder_num_heads
-        self.decoder_depth = args.decoder_depth
+        # self.decoder_embed_dim = args.decoder_embed_dim
+        
+        # dec_possible_embed = [h for h in range(args.decoder_embed_range[0], args.decoder_embed_range[1]+1) if h % 2 == 0]
+        self.decoder_embed_dim = trial.suggest_categorical("decoder_embed_dim", args.decoder_embed_range)       
+        # self.decoder_num_heads = args.decoder_num_heads
+        # dec_possible_heads = [h for h in [1, 2, 4, 8, 16, 32, 64] if (h<self.embed_dim) and self.embed_dim % h == 0]
+        self.decoder_num_heads = trial.suggest_categorical("decoder_num_heads", args.decoder_heads_range)
+        # self.decoder_depth = args.decoder_depth
+        if (self.decoder_num_heads>self.decoder_embed_dim) or (self.decoder_embed_dim%self.decoder_num_heads) != 0:
+            print(f"Number of Decoder heads = {self.decoder_num_heads} || Decoder embedding dimension = {self.decoder_embed_dim} :: Pruning Trial")
+            raise optuna.exceptions.TrialPruned()
+            
+        self.decoder_depth = trial.suggest_categorical("decoder_depth", args.decoder_depth_range)
+        
         self.mask_ratio = args.mask_ratio
-        self.dropout = args.dropout
+        # self.dropout = args.dropout
+        self.dropout = trial.suggest_categorical("dropout", args.dropout_range)
+        
         self.task_name = args.task_name
         self.seq_len = args.seq_len
         self.pred_len = args.pred_len
@@ -173,6 +201,8 @@ class MaskedAutoencoder(nn.Module):
 
             self.mask_token = nn.Parameter(torch.zeros(1, 1, self.decoder_embed_dim))
 
+            # self.decoder_pos_embed = nn.Parameter(torch.zeros(1, self.seq_len + 1, self.decoder_embed_dim), requires_grad=False)  # fixed sin-cos embedding
+
             self.decoder_blocks = nn.ModuleList([
                 Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer)
                 for i in range(self.decoder_depth)])
@@ -188,12 +218,14 @@ class MaskedAutoencoder(nn.Module):
             # ----------------
             # Decoder With a Linear Head
             # ----------------
-            self.fh = FlattenHead(args, num_feats)
+            # self.dfh = DecoderWithLinearHead(args, num_feats, self.cls_token)
+            self.fh = FlattenHead(args, num_feats, trial, self.embed_dim)
         
         self.set_masking_mode()
             
     def initialize_weights(self):
-        
+
+        # initialize patch_embed like nn.Linear (instead of nn.Conv2d)
         # w = self.mask_embed.proj.weight.data
         # torch.nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
         w = [self.mask_embed.embeddings[i][0].weight.data for i in range(self.num_feats)]
@@ -245,6 +277,7 @@ class MaskedAutoencoder(nn.Module):
         len_keep = self.seq_len
 
         noise = torch.linspace(0, 1, L, device=x.device).repeat(N, 1)  # predictable noise
+        # noise[m[:,0,:] < eps] = 1
         
         # sort noise for each sample
         ids_shuffle = torch.argsort(noise, dim=1)  # ascend: small is keep, large is remove
@@ -261,6 +294,9 @@ class MaskedAutoencoder(nn.Module):
         # unshuffle to get the binary mask
         mask = torch.gather(mask, dim=1, index=ids_restore)
         nask = torch.ones([N, L], device=x.device) - mask
+
+#         if self.training:
+#             mask[m[:, 0, :] < eps] = 0
         
         return x_masked, mask, nask, ids_restore
     
@@ -274,8 +310,13 @@ class MaskedAutoencoder(nn.Module):
         
         #uncomment this part when we infer
         len_keep = int(L * (1 - self.mask_ratio))
+        # if self.training:
+        #     len_keep = int(L * (1 - self.mask_ratio))
+        # else:
+        #     len_keep = int(torch.min(torch.sum(m, dim=2)))
         
         noise = torch.rand(N, L, device=x.device)  # noise in [0, 1]
+        # noise[m[:,0,:] < eps] = 1
         
         # sort noise for each sample
         ids_shuffle = torch.argsort(noise, dim=1)  # ascend: small is keep, large is remove
@@ -302,7 +343,7 @@ class MaskedAutoencoder(nn.Module):
         
         x = x.view(-1, num_feat, d)
         
-        m_ = copy.deepcopy(m.reshape(-1, num_feat))
+        m_ = copy.deepcopy(m.reshape(-1, num_feat)) #replaced view with reshape on ARC
         
         attn_out, _ = self.mhca(var_query, x, x, key_padding_mask=m_)
         
@@ -312,33 +353,13 @@ class MaskedAutoencoder(nn.Module):
     
     def forward_encoder(self, x, m):
         
-        '''
-        rev-in
-        '''
-#         means = torch.sum(x, dim=1) / torch.sum(m == 1, dim=1)
-#         means = means.unsqueeze(1)
-        
-#         x = x - means
-        
-#         stdev = torch.sqrt(torch.sum(x * x, dim=1) / torch.sum(m == 1, dim=1) + 1e-5)
-#         stdev = stdev.unsqueeze(1)
-        
-#         x /= stdev
-
-        valid_count = torch.sum(m == 1, dim=1, keepdim=True)
-        means = torch.sum(x * (m == 1), dim=1) / valid_count
+        means = torch.sum(x, dim=1) / torch.sum(m == 1, dim=1)
         means = means.unsqueeze(1)
-
-        # Center the data by subtracting the mean from valid positions
-        x = (x - means) * (m == 1)  # Apply mask to ensure invalid positions are unaffected
-
-        # Compute the standard deviation, ignoring masked positions
-        variance = torch.sum((x * (m == 1)) ** 2, dim=1) / valid_count
-        stdev = torch.sqrt(variance + 1e-5)
+        # x = x - means
+        
+        stdev = torch.sqrt(torch.sum(x * x, dim=1) / torch.sum(m == 1, dim=1) + 1e-5)
         stdev = stdev.unsqueeze(1)
-
-        # Normalize, only applying to valid positions
-        x = (x / stdev) * (m == 1) 
+        # x /= stdev
         
         # embed patches
         x = self.mask_embed(x)
@@ -401,15 +422,32 @@ class MaskedAutoencoder(nn.Module):
         
         # remove cls token
         x = x[:, 1:, :]
-        
-        x = x * (std[:, 0, :].unsqueeze(1).repeat(1, self.seq_len, 1))
-        x = x + (means[:, 0, :].unsqueeze(1).repeat(1, self.seq_len, 1))
+        # print(f"output shape of decoder = {x.shape}")
+        # print(f"x shape = {x.shape}")
+        # print(f"std shape = {std.shape}")
+        # print(f"means shape = {means.shape}")
+        # exit(0)
+        # xcloned = x.clone
+        # x = x * (std[:, 0, :].unsqueeze(1).repeat(1, self.seq_len, 1))
+        # x = x + (means[:, 0, :].unsqueeze(1).repeat(1, self.seq_len, 1))
         
         return x
     
 
     def forward_loss(self, data, pred, miss_idx, mask=None, nask=None, masked_penalize=False):
+        """
+        data: [N, 1, L]
+        pred: [N, L]
+        mask: [N, L], 0 is keep, 1 is remove, 
+        """
         
+        '''
+        create a 2D mask for loss computation
+        
+        Mask for loss computation = Original mask * Expanded 1D mask
+        '''
+        
+        # data = data.transpose(1, 2)
         target = data
         
         if mask is not None:
