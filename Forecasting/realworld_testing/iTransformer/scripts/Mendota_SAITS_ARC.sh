@@ -4,7 +4,7 @@
 #SBATCH --mail-user=sepidehfatemi@vt.edu
 #SBATCH --partition=dgx_normal_q #dgx_normal_q #a100_normal_q
 #SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=1
-#SBATCH --time=9:00:00 # 24 hours
+#SBATCH --time=2:00:00 # 24 hours
 #SBATCH --gres=gpu:1
 
 module reset
@@ -28,7 +28,6 @@ data_name=Lake
 seq_len=21
 
 model_name=iTransformer
-cd ..
 
 for pred_len in 7 14 21; do
     python -u run.py \
@@ -47,15 +46,16 @@ for pred_len in 7 14 21; do
     --seq_len $seq_len \
     --pred_len $pred_len \
     --e_layers 2 \
-    --enc_in 7 \
-    --dec_in 7 \
-    --c_out 7 \
+    --enc_in 16 \
+    --dec_in 16 \
+    --c_out 16 \
     --des 'Exp' \
-    --d_model 128 \
+    --d_model 32 \
     --d_ff 128 \
-    --itr 5 \
+    --itr 1 \
     --gpu $DEVICES \
     --checkpoints $CHECKPOINT \
+    --batch_size 16 \
     --trial $TRIAL \
     --train_epochs 100\
     --learning_rate 0.0001 \

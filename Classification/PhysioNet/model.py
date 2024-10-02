@@ -21,11 +21,12 @@ from utils import FeatEmbed
 
 
 class Flatten_Head(nn.Module):
-    def __init__(self, configs, d_model, seq_len, head_dropout=0):
+    def __init__(self, d_model, seq_len, head_dropout=0):
         super().__init__()
         self.flatten = nn.Flatten(start_dim=-2)
         self.logits = nn.Linear(seq_len*d_model, 64)
-        self.logits_simple = nn.Linear(64, configs.num_classes_target)
+        self.logits_simple = nn.Linear(64, 2)
+        # self.logits_simple = nn.Linear(64, configs.num_classes_target)
         
     def forward(self, x):  # [bs x n_vars x seq_len x d_model]
         x = self.flatten(x) # [bs x n_vars * seq_len * d_model)]
@@ -43,7 +44,7 @@ class MaskedAutoencoder(nn.Module):
     def __init__(self,
                  args,
                  num_feats,
-                 data_config,
+                #  data_config,
                  norm_layer=nn.LayerNorm, 
                  norm_field_loss=False,
                  encode_func='linear'):
@@ -71,7 +72,7 @@ class MaskedAutoencoder(nn.Module):
         self.task_name = args.task_name
         self.seq_len = args.seq_len
         
-        self.data_config = data_config
+        # self.data_config = data_config
         self.num_feats = num_feats
         self.norm_layer = norm_layer
         self.encode_func = encode_func
@@ -115,7 +116,7 @@ class MaskedAutoencoder(nn.Module):
         elif self.task_name == 'finetune':
             self.head = Flatten_Head(seq_len=args.seq_len, 
                                      d_model=args.encoder_embed_dim, 
-                                     configs=self.data_config, 
+                                    #  configs=self.data_config, 
                                      head_dropout=args.dropout)
         
         self.set_masking_mode()
@@ -236,11 +237,17 @@ class MaskedAutoencoder(nn.Module):
     def cross_attention(self, x, m):
         
         batch_size, window_size, num_feat, d = x.shape
+        # print("self.var_query:", self.var_query.shape)
         var_query = self.var_query.repeat_interleave(batch_size*window_size, dim=0)
+        # print("var_query after:", var_query.shape)
         
+        # print("x before view:", x.shape)
         x = x.view(-1, num_feat, d)
+        # print("x after view:", x.shape)
         
+        # print("m before view:", m.shape)
         m_ = copy.deepcopy(m.view(-1, num_feat))
+        # print("m_ after view:", m_.shape)
         
         attn_out, _ = self.mhca(var_query, x, x, key_padding_mask=m_)
         

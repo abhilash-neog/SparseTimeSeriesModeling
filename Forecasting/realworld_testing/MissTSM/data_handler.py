@@ -14,11 +14,12 @@ import copy
 import datetime
 import timefeatures
 
+from sklearn.preprocessing import StandardScaler
 from utils.util import Utils
 from functools import partial
 
 
-class Lake():
+class FCR():
     
     def __init__(self, args, target=None):
         
@@ -83,17 +84,85 @@ class Lake():
         df = pd.concat([df, df_date], axis=1)
         return df
 
+class Mendota():
+    
+    def __init__(self, args, target=None):
+        
+        self.split_ratios = {'train':0.6, 
+                             'val':0.2, 
+                             'test':0.2}
+        self.args = args
+        self.target = target
+        
+    def read_data(self, gt=None):
+        
+        if gt is not None:
+            root_path=self.args.gt_root_path
+            data_path=self.args.gt_source_filename
+        else:
+            root_path=self.args.root_path
+            data_path=self.args.source_filename
+        
+        filepath = os.path.join(root_path, data_path)
+        
+        df = pd.read_csv(filepath+'.csv')
+        
+        cols = list(df.columns)
+        
+        cols.remove('date')
+        self.features_col = copy.deepcopy(cols)
+        
+        # target is a list
+        for col in self.target:
+            cols.remove(col)
+        
+        self.date_col = df.columns[0]
+        
+        df = df[['date'] + cols + self.target]
+        
+        return df
+    
+    def add_time_feats(self, df):
+        '''
+        not using it correctly
+        '''
+        
+        df_date = df[[self.date_col]]
+        df_date[self.date_col] = pd.to_datetime(df_date[self.date_col])
+        
+        if self.args.timeenc==0:
+            df_date['month'] = df_date.date.apply(lambda row: row.month, 1)
+            df_date['day'] = df_date.date.apply(lambda row: row.day, 1)
+            df_date['weekday'] = df_date.date.apply(lambda row: row.weekday(), 1)
+            df_date['hour'] = df_date.date.apply(lambda row: row.hour, 1)
+            df_date['minute'] = df_date.date.apply(lambda row: row.minute, 1)
+            df_date['minute'] = df_date.minute.map(lambda x: x // 15)
+            df_date = df_date.drop(['date'], 1)
+        elif self.args.timeenc==1:
+            df_date = time_features(pd.to_datetime(df_date['date'].values), freq=self.args.freq)
+            df_date = df_date.transpose(1, 0)
+        else:
+            # No time features
+            return df[self.features_col]
+        
+        df = df[self.features_col]
+        df = pd.concat([df, df_date], axis=1)
+        return df
+
+    
 class DataHandler():
     
     def __init__(self, args, target):
         
         data_map = {
-            'Lake': Lake
+            'FCR': FCR,
+            'Mendota': Mendota
         }
         
         self.args = args
         self.target = target
         self.dataClass = data_map[args.dataset]
+        self.scaler = StandardScaler()
             
     def handle(self, gt=None):
         
@@ -136,8 +205,8 @@ class DataHandler():
         val_X = torch.from_numpy(val_X).type(torch.Tensor)
         test_X = torch.from_numpy(test_X).type(torch.Tensor)
 
-        train_X = utils.normalize_tensor(train_X, use_stat=False)
-        val_X = utils.normalize_tensor(val_X, use_stat=True)
-        test_X = utils.normalize_tensor(test_X, use_stat=True)
+        # train_X = utils.normalize_tensor(train_X, use_stat=False)
+        # val_X = utils.normalize_tensor(val_X, use_stat=True)
+        # test_X = utils.normalize_tensor(test_X, use_stat=True)
         
         return train_X, val_X, test_X, utils

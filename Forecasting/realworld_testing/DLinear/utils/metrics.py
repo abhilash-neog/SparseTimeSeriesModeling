@@ -29,7 +29,6 @@ def MSE(pred, true):
     mask = ~np.isnan(true)
     pred_filtered = pred[mask]
     true_filtered = true[mask]
-    
     return np.mean((pred_filtered - true_filtered) ** 2)
 
 def RMSE(pred, true):

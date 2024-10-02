@@ -161,21 +161,21 @@ class DataHandler():
     
     def __init__(self, args):
         
-        data_map = {
-            'ETTh1': ETTHour,
-            'ETTh2': ETTHour,
-            'ETTm1': ETTMin,
-            'ETTm2': ETTMin,
-            'weather': Custom,
-            'traffic': Custom,
-            'electricity': Custom
-        }
+        # data_map = {
+        #     'ETTh1': ETTHour,
+        #     'ETTh2': ETTHour,
+        #     'ETTm1': ETTMin,
+        #     'ETTm2': ETTMin,
+        #     'weather': Custom,
+        #     'traffic': Custom,
+        #     'electricity': Custom
+        # }
         
         self.args = args
-        if args.dataset=='ETT':
-            self.dataClass = data_map[args.source_filename]
-        else:
-            self.dataClass = data_map[args.dataset]
+        # if args.dataset=='ETT':
+        #     self.dataClass = data_map[args.source_filename]
+        # else:
+        #     self.dataClass = data_map[args.dataset]
     
     def read_data(self):
         # path = "./RawData/Physio2012_mega/"

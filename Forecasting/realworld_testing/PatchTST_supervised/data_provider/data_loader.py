@@ -49,6 +49,7 @@ class Dataset_Lake(Dataset):
         df_raw.columns: ['date', ...(other features), target feature]
         '''
         cols = list(df_raw.columns)
+        
         for col in self.target:
             cols.remove(col)
 
@@ -70,7 +71,7 @@ class Dataset_Lake(Dataset):
             cols_data = df_raw.columns[1:]
             df_data = df_raw[cols_data]
         elif self.features == 'S':
-            df_data = df_raw[[self.target[1]]]
+            df_data = df_raw[[self.target[0]]]
 
         if self.scale:
             train_data = df_data[border1s[0]:border2s[0]]

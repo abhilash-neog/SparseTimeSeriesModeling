@@ -354,13 +354,13 @@ class Exp_Main(Exp_Basic):
 
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
+            for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):                
                 batch_x = batch_x.float().to(self.device)
-                batch_y = batch_y.float().to(self.device)
-
+                batch_y = batch_y.float().to(self.device)   
+                   
                 batch_x_mark = batch_x_mark.float().to(self.device)
                 batch_y_mark = batch_y_mark.float().to(self.device)
-
+            
                 # decoder input
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
@@ -399,7 +399,7 @@ class Exp_Main(Exp_Basic):
                 
                 # exit(0)
                 pred = outputs  # outputs.detach().cpu().numpy()  # .squeeze()
-                true = batch_y  # batch_y.detach().cpu().numpy()  # .squeeze()
+                # true = batch_y  # batch_y.detach().cpu().numpy()  # .squeeze()
 
                 preds.append(pred)
                 # trues.append(true)
@@ -416,10 +416,13 @@ class Exp_Main(Exp_Basic):
                     f_dim = -2
                 else:
                     f_dim = 0
+                
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
                 true = batch_y.detach().cpu().numpy()
+                
                 trues.append(true)
-                if i % 2 == 0:
+
+                if i % 2 == 0:                    
                     input = batch_x.detach().cpu().numpy()
                     gt = np.concatenate((inputx[i][0, :, -1], trues[i][0, :, -1]), axis=0)
                     pd = np.concatenate((inputx[i][0, :, -1], preds[i][0, :, -1]), axis=0)
@@ -434,7 +437,8 @@ class Exp_Main(Exp_Basic):
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
         inputx = inputx.reshape(-1, inputx.shape[-2], inputx.shape[-1])
-
+        # print(f"trues shape: {trues.shape} ")
+        # print(f"preds shape: {preds.shape} ")
         # result save
         # folder_path = './results/' + setting + '/'
         # if not os.path.exists(folder_path):
