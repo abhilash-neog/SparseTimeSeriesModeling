@@ -16,6 +16,7 @@ ROOT_PATHS=$1
 DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
+PRED_LEN_LIST=$5
 
 CHECKPOINT="/projects/ml4science/time_series/iTransformer/BRITS/checkpoints/"
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/weather/"
@@ -27,10 +28,12 @@ OUTPUT_PATH="/projects/ml4science/time_series/iTransformer/outputs/BRITS/${MASKI
 
 seq_len=336
 
+IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
+
 model_name=iTransformer
 for id in $ROOT_PATHS; do
     root_path="${root_path_name}${id}"
-    for pred_len in 96 192 336 720; do
+    for pred_len in ${PRED_LEN_ARRAY[@]}; do
         python -u run.py \
           --is_training 1 \
           --root_path $root_path \
