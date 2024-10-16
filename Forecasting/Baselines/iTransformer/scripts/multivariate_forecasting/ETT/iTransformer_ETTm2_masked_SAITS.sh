@@ -6,10 +6,10 @@ TRIAL=$3
 MASKINGTYPE=$4
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
-root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTh1/"
-data_path_name="v${TRIAL}_${MASKINGTYPE}_etth1_imputed_SAITS.csv"
+root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTm2/"
+data_path_name="v${TRIAL}_${MASKINGTYPE}_ettm2_imputed_SAITS.csv"
 
-OUTPUT_PATH="./outputs/SAITS/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
+OUTPUT_PATH="./outputs/SAITS/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
 CHECKPOINT="/raid/abhilash/iTransformer_ckpts/SAITS/"
 seq_len=336
 
@@ -23,10 +23,10 @@ for id in $ROOT_PATHS; do
           --root_path $root_path \
           --data_path $data_path_name \
           --gt_root_path $GT_ROOT_PATH \
-          --gt_data_path ETTh1.csv \
-          --model_id "ETTh1_${seq_len}_${pred_len}" \
+          --gt_data_path ETTm2.csv \
+          --model_id "ETTm2_${seq_len}_${pred_len}" \
           --model $model_name \
-          --data ETTh1 \
+          --data ETTm2 \
           --features M \
           --seq_len $seq_len \
           --pred_len $pred_len \
@@ -35,12 +35,11 @@ for id in $ROOT_PATHS; do
           --dec_in 7 \
           --c_out 7 \
           --des 'Exp' \
-          --d_model 256 \
-          --d_ff 256 \
+          --d_model 128 \
+          --d_ff 128 \
           --itr 1 \
           --gpu $DEVICES \
           --trial $TRIAL \
-          --train_epochs 100 \
           --checkpoints $CHECKPOINT \
           --output_path $OUTPUT_PATH
     done

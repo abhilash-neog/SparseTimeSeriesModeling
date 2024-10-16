@@ -1,10 +1,10 @@
-#!/bin/bash
 masking_type=$1
 dataset=$2
 device=$3
-input_data_path="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/${dataset}/"
-fractions="p8"
-periodic_fractions="a1 a2 a3 a4 a5 a6 a7 a8 a9"
+input_data_path="/raid/abhilash/synthetic_datasets/${dataset}/"
+output_data_path="/raid/abhilash/updated_synthetic_datasets/${dataset}/"
+fractions="p6 p7 p8 p9"
+periodic_fractions="a6 a7 a8 a9"
 patch_fractions="patch1 patch2 patch3 patch4 patch5 patch6 patch7 patch8 patch9"
 if [[ "$masking_type" == "mcar" ]]; then
     selected_fractions=$fractions
@@ -19,10 +19,12 @@ fi
 
 for pvalue in $selected_fractions; do
     input_path="${input_data_path}${pvalue}/"
+    out_path="${output_data_path}${pvalue}/"
     echo "Running for pvalue = ${pvalue}"
-    python saits_imputer.py \
+    python saits_imputer_UPDATED.py \
         --masking_type $masking_type \
         --dataset $dataset \
         --input_data_path $input_path \
+        --output_data_path $out_path \
         --device $device
 done

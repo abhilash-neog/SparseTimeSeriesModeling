@@ -14,7 +14,10 @@ SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_etth2.csv"
 GT_SOURCE_FILE="ETTh2.csv"
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
-OUTPUT_PATH="./outputs_old/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+OUTPUT_PATH="./outputs_upd/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+
+PRETRAIN_CKPTS="/raid/abhilash/pretrain_checkpoints/"
+FINETUNE_CKPTS="/raid/abhilash/finetune_checkpoints/"
 
 IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 
@@ -26,7 +29,7 @@ for id in $ROOT_PATHS; do
         --task_name pretrain \
         --device $DEVICE \
         --root_path $root_path \
-        --run_name "v${TRIAL}_${MASKINGTYPE}_old_pretrain_${DATASET}_${id}" \
+        --run_name "v${TRIAL}_${MASKINGTYPE}_upd_pretrain_${DATASET}_${id}" \
         --source_filename $SOURCE_FILE \
         --dataset $DATASET \
         --max_epochs $PRETRAIN_EPOCHS \
@@ -37,7 +40,8 @@ for id in $ROOT_PATHS; do
         --encoder_num_heads 8 \
         --encoder_embed_dim 8 \
         --project_name ett_masking \
-        --trial $TRIAL
+        --trial $TRIAL \
+        --pretrain_checkpoints_dir $PRETRAIN_CKPTS
 
     # FINETUNE WITH NON-FROZEN ENCODER
     for pred_len in ${PRED_LEN_ARRAY[@]}; do
@@ -47,8 +51,8 @@ for id in $ROOT_PATHS; do
             --root_path $root_path \
             --gt_root_path $GT_ROOT_PATH \
             --gt_source_filename $GT_SOURCE_FILE \
-            --run_name "v${TRIAL}_${MASKINGTYPE}_old_finetune_${DATASET}_PRED_${pred_len}_${id}" \
-            --pretrain_run_name "v${TRIAL}_${MASKINGTYPE}_old_pretrain_${DATASET}_${id}" \
+            --run_name "v${TRIAL}_${MASKINGTYPE}_upd_finetune_${DATASET}_PRED_${pred_len}_${id}" \
+            --pretrain_run_name "v${TRIAL}_${MASKINGTYPE}_upd_pretrain_${DATASET}_${id}" \
             --freeze_encoder "False" \
             --max_epochs $FINETUNE_EPOCHS \
             --dataset $DATASET \
@@ -63,6 +67,7 @@ for id in $ROOT_PATHS; do
             --batch_size 16 \
             --project_name ett_masking \
             --output_path $OUTPUT_PATH \
-            --trial $TRIAL
+            --trial $TRIAL \
+            --finetune_checkpoints_dir $FINETUNE_CKPTS
     done
 done

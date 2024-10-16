@@ -1,33 +1,42 @@
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+#!/bin/bash
+#SBATCH -J ecltesting
+#SBATCH --account=ml4science
+#SBATCH --partition=dgx_normal_q #dgx_normal_q #a100_normal_q
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=8
+#SBATCH --time=20:00:00 # 24 hours
+#SBATCH --gres=gpu:1
 
+module reset
+module load Anaconda3/2020.11
+source activate env
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.conda/envs/env/lib
+
+BASE_PATH="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTh1/"
 ROOT_PATHS=$1
 DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
-PRED_LEN_LIST=$5
 
-GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
-root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTh1/"
-data_path_name="v${TRIAL}_${MASKINGTYPE}_etth1_imputed_SAITS.csv"
+DATA_PATH="v${TRIAL}_${MASKINGTYPE}_etth1_imputed_SAITS.csv"
 
-OUTPUT_PATH="./outputs/SAITS/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
-PRETRAIN_CHECKPOINTS_DIR="/raid/abhilash/SimMTM_pretrain_ckpts/SAITS/"
-FINETUNE_CHECKPOINTS_DIR="/raid/abhilash/SimMTM_finetune_ckpts/SAITS/"
+GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
-seq_len=336
+PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/SAITS/pretrain_checkpoints/"
+FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/SAITS/finetune_checkpoints/"
 
-IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
+OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/outputs/SAITS/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
 
 for id in $ROOT_PATHS; do
-    
-    root_path="${root_path_name}${id}"
+
+    root_path="${BASE_PATH}${id}"
     python -u run.py \
         --task_name pretrain \
-        --root_path $root_path\
-        --data_path $data_path_name \
-        --model_id ETTh2 \
+        --root_path  $root_path \
+        --data_path $DATA_PATH \
+        --model_id ETTh1 \
         --model SimMTM \
-        --data ETTh2 \
+        --data ETTh1 \
         --features M \
         --seq_len 336 \
         --e_layers 2 \
@@ -42,21 +51,20 @@ for id in $ROOT_PATHS; do
         --learning_rate 0.001 \
         --batch_size 16 \
         --train_epochs 50 \
-        --trial $TRIAL \
         --pretrain_checkpoints $PRETRAIN_CHECKPOINTS_DIR \
         --gpu $DEVICES
     
-    for pred_len in ${PRED_LEN_ARRAY[@]}; do
+    for pred_len in 96 192 336 720; do
         python -u run.py \
             --task_name finetune \
             --gt_root_path $GT_ROOT_PATH \
             --root_path $root_path \
-            --data_path $data_path_name \
-            --gt_data_path ETTh2.csv \
+            --data_path $DATA_PATH \
+            --gt_data_path ETTh1.csv \
             --is_training 1 \
-            --model_id ETTh2 \
+            --model_id ETTh1 \
             --model SimMTM \
-            --data ETTh2 \
+            --data ETTh1 \
             --features M \
             --seq_len 336 \
             --label_len 48 \
@@ -72,7 +80,6 @@ for id in $ROOT_PATHS; do
             --head_dropout 0.2 \
             --batch_size 16 \
             --gpu $DEVICES \
-            --trial $TRIAL \
             --pretrain_checkpoints $PRETRAIN_CHECKPOINTS_DIR \
             --checkpoints $FINETUNE_CHECKPOINTS_DIR \
             --output_path $OUTPUT_PATH \

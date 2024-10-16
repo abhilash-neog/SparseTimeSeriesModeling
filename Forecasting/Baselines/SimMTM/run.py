@@ -80,7 +80,7 @@ parser.add_argument('--use_amp', action='store_true', help='use automatic mixed 
 # GPU
 parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
 parser.add_argument('--gpu', type=int, default=5, help='gpu')
-parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=True) #default was False
+parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False) #default was False
 parser.add_argument('--devices', type=str, default='0,1,2', help='device ids of multile gpus')
 
 # Pre-train
