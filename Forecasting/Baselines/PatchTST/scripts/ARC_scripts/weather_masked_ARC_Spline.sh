@@ -17,16 +17,16 @@ DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 
-OUTPUT_PATH="/projects/ml4science/time_series/PatchTST_supervised/outputs/Spline/${MASKINGTYPE}/weather_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/PatchTST_supervised/outputs_upd/Spline/${MASKINGTYPE}/weather_v${TRIAL}/"
 
-CHECKPOINT="/projects/ml4science/time_series/PatchTST_supervised/Spline/checkpoints/"
+CHECKPOINT="/projects/ml4science/time_series/PatchTST_supervised/Spline/checkpoints_upd/"
 
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/weather/"
 
 seq_len=336
 model_name=PatchTST
 
-root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/weather/"
+root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/updated_synthetic_datasets/weather/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_weather_imputed.csv"
 model_id_name=weather
 data_name=weather

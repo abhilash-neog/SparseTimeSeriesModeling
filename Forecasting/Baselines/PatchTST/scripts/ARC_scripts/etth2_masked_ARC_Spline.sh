@@ -18,16 +18,16 @@ TRIAL=$3
 MASKINGTYPE=$4
 PRED_LEN_LIST=$5
 
-OUTPUT_PATH="/projects/ml4science/time_series/PatchTST_supervised/outputs/Spline/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/PatchTST_supervised/outputs_upd/Spline/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
 
-CHECKPOINT="/projects/ml4science/time_series/PatchTST_supervised/Spline/checkpoints/"
+CHECKPOINT="/projects/ml4science/time_series/PatchTST_supervised/Spline/checkpoints_upd/"
 
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
 seq_len=336
 model_name=PatchTST
 
-root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTh2/"
+root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/updated_synthetic_datasets/ETTh2/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_etth2_imputed.csv"
 model_id_name=ETTh2
 data_name=ETTh2

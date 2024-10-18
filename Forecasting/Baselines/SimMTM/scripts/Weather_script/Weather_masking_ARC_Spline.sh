@@ -13,7 +13,7 @@ source activate env
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.conda/envs/env/lib
 export CUDA_VISIBLE_DEVICES=0,1,2
 
-BASE_PATH="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/weather/"
+BASE_PATH="/projects/ml4science/time_series/ts_synthetic_datasets/updated_synthetic_datasets/weather/"
 ROOT_PATHS=$1
 DEVICES=$2
 TRIAL=$3
@@ -25,10 +25,10 @@ DATA_PATH="v${TRIAL}_${MASKINGTYPE}_weather_imputed.csv"
 
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/weather/"
 
-PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/pretrain_checkpoints/"
-FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/finetune_checkpoints/"
+PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/pretrain_checkpoints_upd/"
+FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/finetune_checkpoints_upd/"
 
-OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/outputs/Spline/${MASKINGTYPE}/weather_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/outputs_upd/Spline/${MASKINGTYPE}/weather_v${TRIAL}/"
 
 for id in $ROOT_PATHS; do
 

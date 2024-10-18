@@ -12,7 +12,7 @@ source activate env
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.conda/envs/env/lib
 
-BASE_PATH="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTh2/"
+BASE_PATH="/projects/ml4science/time_series/ts_synthetic_datasets/updated_synthetic_datasets/ETTh2/"
 ROOT_PATHS=$1
 DEVICES=$2
 TRIAL=$3
@@ -23,40 +23,40 @@ DATA_PATH="v${TRIAL}_${MASKINGTYPE}_etth2_imputed_SAITS.csv"
 
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
-PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/SAITS/pretrain_checkpoints/"
-FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/SAITS/finetune_checkpoints/"
+PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/SAITS/pretrain_checkpoints_upd/"
+FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/SAITS/finetune_checkpoints_upd/"
 
-OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/outputs/SAITS/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/outputs_upd/SAITS/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
 
 IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 
 for id in $ROOT_PATHS; do
     
     root_path="${BASE_PATH}${id}"
-    python -u run.py \
-        --task_name pretrain \
-        --root_path $root_path\
-        --data_path $DATA_PATH \
-        --model_id ETTh2 \
-        --model SimMTM \
-        --data ETTh2 \
-        --features M \
-        --seq_len 336 \
-        --e_layers 2 \
-        --enc_in 7 \
-        --dec_in 7 \
-        --c_out 7 \
-        --n_heads 8 \
-        --d_model 8 \
-        --d_ff 32 \
-        --positive_nums 3 \
-        --mask_rate 0.5 \
-        --learning_rate 0.001 \
-        --batch_size 16 \
-        --train_epochs 50 \
-        --trial $TRIAL \
-        --pretrain_checkpoints $PRETRAIN_CHECKPOINTS_DIR \
-        --gpu $DEVICES
+    # python -u run.py \
+    #     --task_name pretrain \
+    #     --root_path $root_path\
+    #     --data_path $DATA_PATH \
+    #     --model_id ETTh2 \
+    #     --model SimMTM \
+    #     --data ETTh2 \
+    #     --features M \
+    #     --seq_len 336 \
+    #     --e_layers 2 \
+    #     --enc_in 7 \
+    #     --dec_in 7 \
+    #     --c_out 7 \
+    #     --n_heads 8 \
+    #     --d_model 8 \
+    #     --d_ff 32 \
+    #     --positive_nums 3 \
+    #     --mask_rate 0.5 \
+    #     --learning_rate 0.001 \
+    #     --batch_size 16 \
+    #     --train_epochs 50 \
+    #     --trial $TRIAL \
+    #     --pretrain_checkpoints $PRETRAIN_CHECKPOINTS_DIR \
+    #     --gpu $DEVICES
     
     for pred_len in ${PRED_LEN_ARRAY[@]}; do
         python -u run.py \
