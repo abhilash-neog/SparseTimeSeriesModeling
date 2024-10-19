@@ -33,30 +33,30 @@ IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 for id in $ROOT_PATHS; do
     
     root_path="${BASE_PATH}${id}"
-    # python -u run.py \
-    #     --task_name pretrain \
-    #     --root_path $root_path\
-    #     --data_path $DATA_PATH \
-    #     --model_id ETTh2 \
-    #     --model SimMTM \
-    #     --data ETTh2 \
-    #     --features M \
-    #     --seq_len 336 \
-    #     --e_layers 2 \
-    #     --enc_in 7 \
-    #     --dec_in 7 \
-    #     --c_out 7 \
-    #     --n_heads 8 \
-    #     --d_model 8 \
-    #     --d_ff 32 \
-    #     --positive_nums 3 \
-    #     --mask_rate 0.5 \
-    #     --learning_rate 0.001 \
-    #     --batch_size 16 \
-    #     --train_epochs 50 \
-    #     --trial $TRIAL \
-    #     --pretrain_checkpoints $PRETRAIN_CHECKPOINTS_DIR \
-    #     --gpu $DEVICES
+    python -u run.py \
+        --task_name pretrain \
+        --root_path $root_path\
+        --data_path $DATA_PATH \
+        --model_id ETTh2 \
+        --model SimMTM \
+        --data ETTh2 \
+        --features M \
+        --seq_len 336 \
+        --e_layers 2 \
+        --enc_in 7 \
+        --dec_in 7 \
+        --c_out 7 \
+        --n_heads 8 \
+        --d_model 8 \
+        --d_ff 32 \
+        --positive_nums 3 \
+        --mask_rate 0.5 \
+        --learning_rate 0.001 \
+        --batch_size 16 \
+        --train_epochs 50 \
+        --trial $TRIAL \
+        --pretrain_checkpoints $PRETRAIN_CHECKPOINTS_DIR \
+        --gpu $DEVICES
     
     for pred_len in ${PRED_LEN_ARRAY[@]}; do
         python -u run.py \
