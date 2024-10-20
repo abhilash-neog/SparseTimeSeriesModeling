@@ -19,11 +19,11 @@ model_id_name=ETTh2
 data_name=ETTh2
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
-root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTh2/"
+root_path_name="/raid/abhilash/updated_synthetic_datasets_tests/ETTh2/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_etth2_imputed_SAITS.csv"
 
-OUTPUT_PATH="./outputs_upd/SAITS/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
-CHECKPOINT="/raid/abhilash/ptst_ckpts/SAITS/"
+OUTPUT_PATH="./outputs_upd_test/SAITS/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+CHECKPOINT="/raid/abhilash/ptst_ckpts_test/SAITS/"
 seq_len=336
 
 random_seed=2021

@@ -14,7 +14,10 @@ SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_weather.csv"
 GT_SOURCE_FILE="weather.csv"
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/weather/"
 
-OUTPUT_PATH="./outputs_old/${MASKINGTYPE}/weather_v${TRIAL}/"
+OUTPUT_PATH="./outputs_upd/${MASKINGTYPE}/weather_v${TRIAL}/"
+
+PRETRAIN_CKPTS="/raid/abhilash/pretrain_checkpoints/"
+FINETUNE_CKPTS="/raid/abhilash/finetune_checkpoints/"
 
 IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 
@@ -41,7 +44,8 @@ for id in $ROOT_PATHS; do
         --decoder_depth 2 \
         --project_name weather_masking \
         --trial $TRIAL \
-        --dropout 0.001
+        --dropout 0.001 \
+	--pretrain_checkpoints_dir $PRETRAIN_CKPTS
     
     for pred_len in ${PRED_LEN_ARRAY[@]}; do
         python -u executor.py \
@@ -68,7 +72,8 @@ for id in $ROOT_PATHS; do
             --accum_iter 1 \
             --project_name weather_masking \
             --output_path $OUTPUT_PATH \
-            --trial $TRIAL
+            --trial $TRIAL \
+	    --finetune_checkpoints_dir $FINETUNE_CKPTS
     done
     
 done

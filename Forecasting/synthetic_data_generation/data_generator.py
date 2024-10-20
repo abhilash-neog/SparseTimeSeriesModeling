@@ -143,7 +143,7 @@ for p in pvalues:
         elif masking_type=='hybrid':
             df[columns] = apply_mcar_with_probability(df[columns], p=p)
         else:
-            print("Wrong option mister")
+            print("Wrong option")
 
         print(f"df isna() = {df.isna().sum()}")
         df.to_csv(os.path.join(out_path.format(str_p), masked_file.format(trial)), index=False)

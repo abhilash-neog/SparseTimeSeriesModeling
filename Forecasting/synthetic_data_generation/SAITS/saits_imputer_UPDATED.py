@@ -39,7 +39,7 @@ def get_train_val_test_split(path, dataset, flag):
         num_train = int(len(df_raw) * 0.7)
         num_test = int(len(df_raw) * 0.2)
         num_vali = len(df_raw) - num_train - num_test
-        border1s = [0, num_train - seq_len, len(df_raw) - num_test - seq_len]
+        border1s = [0, num_train, len(df_raw) - num_test]
         border2s = [num_train, num_train + num_vali, len(df_raw)]
         
     border1 = border1s[flag]
@@ -224,7 +224,7 @@ for trial in tqdm(range(5)):
                   epochs=100,
                   batch_size=16,
                   device=device,
-                  saving_path="./")
+                  saving_path="/raid/abhilash/saits_logs/")
     
     '''
     TRAINING

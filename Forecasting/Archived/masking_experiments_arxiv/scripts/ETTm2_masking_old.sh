@@ -14,7 +14,10 @@ SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_ettm2.csv"
 GT_SOURCE_FILE="ETTm2.csv"
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 
-OUTPUT_PATH="./outputs/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
+OUTPUT_PATH="./outputs_upd/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
+
+PRETRAIN_CKPTS="/raid/abhilash/pretrain_checkpoints/"
+FINETUNE_CKPTS="/raid/abhilash/finetune_checkpoints/"
 
 IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 
@@ -37,7 +40,8 @@ for id in $ROOT_PATHS; do
         --encoder_num_heads 8 \
         --encoder_embed_dim 8 \
         --project_name ett_masking \
-        --trial $TRIAL
+        --trial $TRIAL \
+        --pretrain_checkpoints_dir $PRETRAIN_CKPTS
 
     # FINETUNE WITH NON-FROZEN ENCODER
     for pred_len in ${PRED_LEN_ARRAY[@]}; do
@@ -63,6 +67,7 @@ for id in $ROOT_PATHS; do
             --batch_size 64 \
             --project_name ett_masking \
             --output_path $OUTPUT_PATH \
-            --trial $TRIAL
+            --trial $TRIAL \
+            --finetune_checkpoints_dir $FINETUNE_CKPTS
     done
 done
