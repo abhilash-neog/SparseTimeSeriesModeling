@@ -17,13 +17,13 @@ DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 
-CHECKPOINT="/projects/ml4science/time_series/iTransformer/SAITS/checkpoints/"
+CHECKPOINT="/projects/ml4science/time_series/iTransformer/SAITS/checkpoints_upd/"
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/weather/"
 
-root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/weather/"
+root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/updated_synthetic_datasets/weather/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_weather_imputed_SAITS.csv"
 
-OUTPUT_PATH="/projects/ml4science/time_series/iTransformer/outputs/SAITS/${MASKINGTYPE}/weather_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/iTransformer/outputs_upd/SAITS/${MASKINGTYPE}/weather_v${TRIAL}/"
 seq_len=336
 
 model_name=iTransformer

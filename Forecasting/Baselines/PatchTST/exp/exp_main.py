@@ -1,7 +1,7 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
 from models import Informer, Autoformer, Transformer, DLinear, Linear, NLinear, PatchTST
-from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop
+from utils.tools import EarlyStopping, adjust_learning_rate, visual
 from utils.metrics import metric
 
 import numpy as np
@@ -295,10 +295,7 @@ class Exp_Main(Exp_Basic):
                     gt = np.concatenate((input[0, :, -1], true[0, :, -1]), axis=0)
                     pd = np.concatenate((input[0, :, -1], pred[0, :, -1]), axis=0)
                     visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
-
-        if self.args.test_flop:
-            test_params_flop((batch_x.shape[1],batch_x.shape[2]))
-            exit()
+        
         preds = np.array(preds)
         trues = np.array(trues)
         inputx = np.array(inputx)
@@ -331,7 +328,12 @@ class Exp_Main(Exp_Basic):
     def test_masked(self, setting, test=0):
         test_data, test_loader = self._get_data(flag='test')
         test_data_gt, test_loader_gt = self._get_data(flag='test', gt=True)
-        
+        print(f"GT test shape = {len(test_loader_gt)}")
+        val_data_gt, val_loader_gt = self._get_data(flag='val', gt=True)
+        print(f"GT val shape = {len(val_loader_gt)}")
+        train_data_gt, train_loader_gt = self._get_data(flag='train', gt=True)
+        print(f"GT train shape = {len(train_loader_gt)}")
+
         if test:
             print('loading model')
             path = os.path.join(self.args.checkpoints, self.args.data + "_" + str(self.args.pred_len)) + "_" + str(self.args.trial)
@@ -411,9 +413,6 @@ class Exp_Main(Exp_Basic):
                 
                 trues.append(true)
 
-        if self.args.test_flop:
-            test_params_flop((batch_x.shape[1],batch_x.shape[2]))
-            exit()
         preds = np.array(preds)
         trues = np.array(trues)
         inputx = np.array(inputx)

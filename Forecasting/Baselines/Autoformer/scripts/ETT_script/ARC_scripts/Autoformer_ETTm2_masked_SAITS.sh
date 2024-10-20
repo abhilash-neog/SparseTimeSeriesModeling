@@ -17,13 +17,13 @@ DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 
-CHECKPOINT="/projects/ml4science/time_series/Autoformer/SAITS/checkpoints/"
+CHECKPOINT="/projects/ml4science/time_series/Autoformer/SAITS/checkpoints_upd/"
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
-root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTm2/"
+root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/updated_synthetic_datasets/ETTm2/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_ettm2_imputed_SAITS.csv"
 
-OUTPUT_PATH="/projects/ml4science/time_series/Autoformer/outputs/SAITS/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/Autoformer/outputs_upd/SAITS/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
 
 seq_len=336
 
