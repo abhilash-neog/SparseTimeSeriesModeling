@@ -328,11 +328,6 @@ class Exp_Main(Exp_Basic):
     def test_masked(self, setting, test=0):
         test_data, test_loader = self._get_data(flag='test')
         test_data_gt, test_loader_gt = self._get_data(flag='test', gt=True)
-        print(f"GT test shape = {len(test_loader_gt)}")
-        val_data_gt, val_loader_gt = self._get_data(flag='val', gt=True)
-        print(f"GT val shape = {len(val_loader_gt)}")
-        train_data_gt, train_loader_gt = self._get_data(flag='train', gt=True)
-        print(f"GT train shape = {len(train_loader_gt)}")
 
         if test:
             print('loading model')
