@@ -30,16 +30,16 @@ def get_train_val_test_split(path, dataset, flag):
     df_raw = pd.read_csv(path)
     seq_len=336
     if dataset=='ETTh2' or dataset=='ETTh1':
-        border1s = [0, 12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24]
+        border1s = [0, 12 * 30 * 24 - seq_len, 12 * 30 * 24 + 4 * 30 * 24 - seq_len]
         border2s = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
     elif dataset=='ETTm1' or dataset=='ETTm2':
-        border1s = [0, 12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4]
+        border1s = [0, 12 * 30 * 24 * 4 - seq_len, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - seq_len]
         border2s = [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
     else:
         num_train = int(len(df_raw) * 0.7)
         num_test = int(len(df_raw) * 0.2)
         num_vali = len(df_raw) - num_train - num_test
-        border1s = [0, num_train, len(df_raw) - num_test]
+        border1s = [0, num_train - seq_len, len(df_raw) - num_test - seq_len]
         border2s = [num_train, num_train + num_vali, len(df_raw)]
         
     border1 = border1s[flag]
@@ -119,7 +119,7 @@ filename = f"v{{}}_{masking_type}_{dataset.lower()}.csv"
 out_filename = f"v{{}}_{masking_type}_{dataset.lower()}_imputed_SAITS.csv"
 
 dataset_to_ser_len = {'ETTh1': [48, 48, 48], 
-                        'ETTh2': [48, 48, 48], 
+                        'ETTh2': [336, 336, 336], 
                         'ETTm1': [48, 48, 48], 
                         'ETTm2': [48, 48, 48], 
                         'weather': [48, 48, 48], 
@@ -130,7 +130,7 @@ mapper={0:'train',
        1:'val',
        2:'test'}
 
-ser_len=48
+ser_len=336
 
 for trial in tqdm(range(5)):
     '''
@@ -224,7 +224,7 @@ for trial in tqdm(range(5)):
                   epochs=100,
                   batch_size=16,
                   device=device,
-                  saving_path="/raid/abhilash/saits_logs/")
+                  saving_path="./")
     
     '''
     TRAINING
