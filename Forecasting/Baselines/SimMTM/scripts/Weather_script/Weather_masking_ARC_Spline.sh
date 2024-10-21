@@ -82,6 +82,7 @@ for id in $ROOT_PATHS; do
             --d_ff 64 \
             --batch_size 16 \
             --trial $TRIAL \
+            --train_epochs 10\
             --pretrain_checkpoints $PRETRAIN_CHECKPOINTS_DIR \
             --checkpoints $FINETUNE_CHECKPOINTS_DIR \
             --output_path $OUTPUT_PATH \
