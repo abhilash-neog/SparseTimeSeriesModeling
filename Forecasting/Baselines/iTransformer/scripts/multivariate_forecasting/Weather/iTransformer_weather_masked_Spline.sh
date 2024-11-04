@@ -6,11 +6,11 @@ TRIAL=$3
 MASKINGTYPE=$4
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/weather/"
-root_path_name="/raid/abhilash/synthetic_datasets/weather/"
+root_path_name="/raid/abhilash/updated_synthetic_datasets/weather/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_weather_imputed.csv"
 
-OUTPUT_PATH="./outputs/Spline/${MASKINGTYPE}/weather_v${TRIAL}/"
-CHECKPOINT="/raid/abhilash/iTransformer_ckpts/Spline/"
+OUTPUT_PATH="./outputs_upd/Spline/${MASKINGTYPE}/weather_v${TRIAL}/"
+CHECKPOINT="/raid/abhilash/iTransformer_ckpts_upd/Spline/"
 seq_len=336
 
 model_name=iTransformer
