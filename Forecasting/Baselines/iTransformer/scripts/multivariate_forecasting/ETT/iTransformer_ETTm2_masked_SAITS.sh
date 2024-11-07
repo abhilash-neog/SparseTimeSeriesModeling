@@ -9,8 +9,8 @@ GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTm2/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_ettm2_imputed_SAITS.csv"
 
-OUTPUT_PATH="./outputs/SAITS/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
-CHECKPOINT="/raid/abhilash/iTransformer_ckpts/SAITS/"
+OUTPUT_PATH="./outputs_upd/SAITS/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
+CHECKPOINT="/raid/abhilash/iTransformer_ckpts_upd/SAITS/"
 seq_len=336
 
 model_name=iTransformer

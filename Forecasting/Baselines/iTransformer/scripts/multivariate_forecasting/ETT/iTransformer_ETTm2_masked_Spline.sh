@@ -6,10 +6,10 @@ TRIAL=$3
 MASKINGTYPE=$4
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
-root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTh2/"
-data_path_name="v${TRIAL}_${MASKINGTYPE}_etth2_imputed.csv"
+root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTm2/"
+data_path_name="v${TRIAL}_${MASKINGTYPE}_ettm2_imputed.csv"
 
-OUTPUT_PATH="./outputs_upd/Spline/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+OUTPUT_PATH="./outputs_upd/Spline/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
 CHECKPOINT="/raid/abhilash/iTransformer_ckpts_upd/Spline/"
 seq_len=336
 
@@ -23,10 +23,10 @@ for id in $ROOT_PATHS; do
           --root_path $root_path \
           --data_path $data_path_name \
           --gt_root_path $GT_ROOT_PATH \
-          --gt_data_path ETTh2.csv \
-          --model_id "ETTh2_${seq_len}_${pred_len}" \
+          --gt_data_path ETTm2.csv \
+          --model_id "ETTm2_${seq_len}_${pred_len}" \
           --model $model_name \
-          --data ETTh2 \
+          --data ETTm2 \
           --features M \
           --seq_len $seq_len \
           --pred_len $pred_len \
@@ -39,8 +39,6 @@ for id in $ROOT_PATHS; do
           --d_ff 128 \
           --itr 1 \
           --gpu $DEVICES \
-          --train_epochs 100 \
-          --checkpoints $CHECKPOINT \
           --trial $TRIAL \
           --checkpoints $CHECKPOINT \
           --output_path $OUTPUT_PATH
@@ -50,10 +48,10 @@ done
 # python -u run.py \
 #   --is_training 1 \
 #   --root_path ./dataset/ETT-small/ \
-#   --data_path ETTh2.csv \
-#   --model_id ETTh2_96_192 \
+#   --data_path ETTm1.csv \
+#   --model_id ETTm1_96_192 \
 #   --model $model_name \
-#   --data ETTh2 \
+#   --data ETTm1 \
 #   --features M \
 #   --seq_len 96 \
 #   --pred_len 192 \
@@ -69,10 +67,10 @@ done
 # python -u run.py \
 #   --is_training 1 \
 #   --root_path ./dataset/ETT-small/ \
-#   --data_path ETTh2.csv \
-#   --model_id ETTh2_96_336 \
+#   --data_path ETTm1.csv \
+#   --model_id ETTm1_96_336 \
 #   --model $model_name \
-#   --data ETTh2 \
+#   --data ETTm1 \
 #   --features M \
 #   --seq_len 96 \
 #   --pred_len 336 \
@@ -88,10 +86,10 @@ done
 # python -u run.py \
 #   --is_training 1 \
 #   --root_path ./dataset/ETT-small/ \
-#   --data_path ETTh2.csv \
-#   --model_id ETTh2_96_720 \
+#   --data_path ETTm1.csv \
+#   --model_id ETTm1_96_720 \
 #   --model $model_name \
-#   --data ETTh2 \
+#   --data ETTm1 \
 #   --features M \
 #   --seq_len 96 \
 #   --pred_len 720 \

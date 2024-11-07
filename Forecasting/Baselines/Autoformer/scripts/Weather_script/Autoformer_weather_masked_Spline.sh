@@ -1,18 +1,16 @@
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
-OUTPUT_PATH="./outputs/weather_v"
-
 ROOT_PATHS=$1
 DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/weather/"
-root_path_name="/raid/abhilash/synthetic_datasets/weather/"
+root_path_name="/raid/abhilash/updated_synthetic_datasets/weather/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_weather_imputed.csv"
 
-OUTPUT_PATH="./outputs/Spline/${MASKINGTYPE}/weather_v${TRIAL}/"
-CHECKPOINT="/raid/abhilash/AutoFormer_ckpts/Spline/"
+OUTPUT_PATH="./outputs_upd/Spline/${MASKINGTYPE}/weather_v${TRIAL}/"
+CHECKPOINT="/raid/abhilash/AutoFormer_ckpts_upd/Spline/"
 
 seq_len=336
 
@@ -41,7 +39,6 @@ for id in $ROOT_PATHS; do
           --des 'Exp' \
           --itr 1 \
           --gpu $DEVICES \
-          --trial $TRIAL \
           --checkpoints $CHECKPOINT \
           --output_path $OUTPUT_PATH
     done

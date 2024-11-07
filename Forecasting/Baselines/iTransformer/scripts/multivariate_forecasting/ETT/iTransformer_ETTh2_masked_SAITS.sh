@@ -9,8 +9,8 @@ GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTh2/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_etth2_imputed_SAITS.csv"
 
-OUTPUT_PATH="./outputs/SAITS/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
-CHECKPOINT="/raid/abhilash/iTransformer_ckpts/SAITS/"
+OUTPUT_PATH="./outputs_upd/SAITS/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+CHECKPOINT="/raid/abhilash/iTransformer_ckpts_upd/SAITS/"
 seq_len=336
 
 model_name=iTransformer
@@ -39,7 +39,7 @@ for id in $ROOT_PATHS; do
           --d_ff 128 \
           --itr 1 \
           --gpu $DEVICES \
-          --train_epochs 1 \
+          --train_epochs 100 \
           --checkpoints $CHECKPOINT \
           --trial $TRIAL \
           --checkpoints $CHECKPOINT \
