@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -J ecltesting
 #SBATCH --account=ml4science
-#SBATCH --partition=a100_normal_q #dgx_normal_q #a100_normal_q
+#SBATCH --partition=dgx_normal_q
 #SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=8
 #SBATCH --time=15:00:00 # 24 hours
 #SBATCH --gres=gpu:1
@@ -10,32 +10,35 @@ module reset
 module load Anaconda3/2020.11
 source activate ptst
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/abhilash22/.conda/envs/env/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.conda/envs/env/lib
 
 ROOT_PATHS=$1
 DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
+PRED_LEN_LIST=$5
 
-OUTPUT_PATH="/projects/ml4science/time_series/PatchTST_supervised/outputs/Spline/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/PatchTST_supervised/outputs_upd/Spline/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
 
-CHECKPOINT="/projects/ml4science/time_series/PatchTST_supervised/Spline/checkpoints/"
+CHECKPOINT="/projects/ml4science/time_series/PatchTST_supervised/Spline/checkpoints_upd/"
 
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
 seq_len=336
 model_name=PatchTST
 
-root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTh1/"
+root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/updated_synthetic_datasets/ETTh1/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_etth1_imputed.csv"
 model_id_name=ETTh1
 data_name=ETTh1
 
 random_seed=2021
 
+IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
+
 for id in $ROOT_PATHS; do
     root_path="${root_path_name}${id}"
-    for pred_len in 96 192 336 720; do
+    for pred_len in ${PRED_LEN_ARRAY[@]}; do
         python -u run_longExp.py \
           --random_seed $random_seed \
           --is_training 1 \

@@ -17,6 +17,7 @@ ROOT_PATHS=$1
 DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
+PRED_LEN_LIST=$5
 
 DATA_PATH="v${TRIAL}_${MASKINGTYPE}_ettm2_imputed.csv"
 
@@ -26,6 +27,8 @@ PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/pretrai
 FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/finetune_checkpoints_upd/"
 
 OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/outputs_upd/Spline/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
+
+IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 
 for id in $ROOT_PATHS; do
 
@@ -55,7 +58,7 @@ for id in $ROOT_PATHS; do
         --pretrain_checkpoints $PRETRAIN_CHECKPOINTS_DIR \
         --gpu $DEVICES
 
-    for pred_len in 96 192 336 720; do
+    for pred_len in ${PRED_LEN_ARRAY[@]}; do
         python -u run.py \
             --task_name finetune \
             --is_training 1 \

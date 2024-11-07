@@ -2,7 +2,7 @@
 #SBATCH -J ecltesting
 #SBATCH --account=ml4science
 #SBATCH --partition=dgx_normal_q #dgx_normal_q #a100_normal_q
-#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=16
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=8
 #SBATCH --time=20:00:00 # 24 hours
 #SBATCH --gres=gpu:1
 
@@ -12,20 +12,23 @@ source activate env
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.conda/envs/env/lib
 
-BASE_PATH="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/ETTh1/"
+BASE_PATH="/projects/ml4science/time_series/ts_synthetic_datasets/updated_synthetic_datasets/ETTh1/"
 ROOT_PATHS=$1
 DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
+PRED_LEN_LIST=$5
 
 DATA_PATH="v${TRIAL}_${MASKINGTYPE}_etth1_imputed.csv"
 
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/ETT/"
 
-PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/pretrain_checkpoints/"
-FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/finetune_checkpoints/"
+PRETRAIN_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/pretrain_checkpoints_upd/"
+FINETUNE_CHECKPOINTS_DIR="/projects/ml4science/time_series/SimMTM/Spline/finetune_checkpoints_upd/"
 
-OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/outputs/Spline/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/SimMTM/outputs_upd/Spline/${MASKINGTYPE}/ETTh1_v${TRIAL}/"
+
+IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 
 for id in $ROOT_PATHS; do
 
@@ -54,7 +57,7 @@ for id in $ROOT_PATHS; do
         --pretrain_checkpoints $PRETRAIN_CHECKPOINTS_DIR \
         --gpu $DEVICES
     
-    for pred_len in 96 192 336 720; do
+    for pred_len in ${PRED_LEN_ARRAY[@]}; do
         python -u run.py \
             --task_name finetune \
             --gt_root_path $GT_ROOT_PATH \
