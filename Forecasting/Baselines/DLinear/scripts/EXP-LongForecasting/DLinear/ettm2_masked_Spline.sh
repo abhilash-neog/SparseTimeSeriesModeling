@@ -1,15 +1,18 @@
+export CUDA_VISIBLE_DEVICES=0,1,2,3
+
 ROOT_PATHS=$1
 DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
-root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTh2/"
-data_path_name="v${TRIAL}_${MASKINGTYPE}_etth2_imputed.csv"
+root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTm2/"
+data_path_name="v${TRIAL}_${MASKINGTYPE}_ettm2_imputed.csv"
 
-OUTPUT_PATH="./outputs_upd/Spline/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+OUTPUT_PATH="./outputs_upd/Spline/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
 CHECKPOINT="/raid/abhilash/DLinear_ckpts_upd/Spline/"
 seq_len=336
+
 
 for id in $ROOT_PATHS; do
     root_path="${root_path_name}${id}"
@@ -19,10 +22,10 @@ for id in $ROOT_PATHS; do
           --root_path $root_path \
           --data_path $data_path_name \
           --gt_root_path $GT_ROOT_PATH \
-          --gt_data_path ETTh2.csv \
-          --model_id "ETTh2_${seq_len}_${pred_len}" \
+          --gt_data_path ETTm2.csv \
+          --model_id "ETTm2_${seq_len}_${pred_len}" \
           --model DLinear \
-          --data ETTh2 \
+          --data ETTm2 \
           --features M \
           --seq_len $seq_len \
           --pred_len $pred_len \

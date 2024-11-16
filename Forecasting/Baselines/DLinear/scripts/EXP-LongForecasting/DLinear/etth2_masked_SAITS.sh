@@ -3,15 +3,12 @@ DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 
-# GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
-GT_ROOT_PATH="./datasets/ETT/"
-
-root_path_name="./synthetic_datasets/ETTh2/"
+GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
+root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTh2/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_etth2_imputed_SAITS.csv"
 
-CHECKPOINT="./model_checkpoints/SAITS/"
-OUTPUT_PATH="./outputs/SAITS/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
-
+OUTPUT_PATH="./outputs_upd/SAITS/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+CHECKPOINT="/raid/abhilash/DLinear_ckpts_upd/SAITS/"
 seq_len=336
 
 for id in $ROOT_PATHS; do
