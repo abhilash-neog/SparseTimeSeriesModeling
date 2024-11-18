@@ -2,8 +2,8 @@
 #SBATCH -J ecltesting
 #SBATCH --account=ml4science
 #SBATCH --partition=dgx_normal_q
-#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=8
-#SBATCH --time=15:00:00 # 24 hours
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=16
+#SBATCH --time=20:00:00 # 24 hours
 #SBATCH --gres=gpu:1
 
 module reset
@@ -61,7 +61,7 @@ for id in $ROOT_PATHS; do
           --patch_len 16\
           --stride 8\
           --des 'Exp' \
-          --train_epochs 1\
+          --train_epochs 100\
           --patience 10\
           --lradj 'TST'\
           --pct_start 0.2\
