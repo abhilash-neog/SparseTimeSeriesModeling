@@ -87,7 +87,8 @@ for id in $ROOT_PATHS; do
             --project_name ecl_masking \
             --output_path $OUTPUT_PATH \
             --trial $TRIAL \
-	        --finetune_checkpoints_dir $FINETUNE_CKPTS
+	        --finetune_checkpoints_dir $FINETUNE_CKPTS \
+            --pretrain_checkpoints_dir $PRETRAIN_CKPTS
     done
     
 done

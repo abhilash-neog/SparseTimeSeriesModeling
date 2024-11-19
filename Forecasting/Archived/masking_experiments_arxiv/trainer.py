@@ -218,7 +218,7 @@ class Trainer():
         for iteration, (samples, _, masks, _) in enumerate(dataloader):
             samples = samples.to(self.device)
             masks = masks.to(self.device)
-
+            
             with torch.cuda.amp.autocast():
 
                 pred, mask, nask = self.model(samples, masks, self.mpl) # we get de-normalized predictions
