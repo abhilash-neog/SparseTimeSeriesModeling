@@ -2,8 +2,8 @@
 #SBATCH -J ecltesting
 #SBATCH --account=ml4science
 #SBATCH --partition=dgx_normal_q
-#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=8
-#SBATCH --time=15:00:00 # 24 hours
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=16
+#SBATCH --time=20:00:00 # 24 hours
 #SBATCH --gres=gpu:1
 
 module reset
@@ -16,17 +16,18 @@ ROOT_PATHS=$1
 DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
+PRED_LEN_LIST=$5
 
-OUTPUT_PATH="/projects/ml4science/time_series/PatchTST_supervised/outputs/SAITS/${MASKINGTYPE}/ECL_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/PatchTST_supervised/outputs_upd/SAITS/${MASKINGTYPE}/ECL_v${TRIAL}/"
 
-CHECKPOINT="/projects/ml4science/time_series/PatchTST_supervised/SAITS/checkpoints/"
+CHECKPOINT="/projects/ml4science/time_series/PatchTST_supervised/SAITS/checkpoints_upd/"
 
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/electricity/"
 
 seq_len=336
 model_name=PatchTST
 
-root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/electricity/"
+root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/updated_synthetic_datasets/electricity/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_electricity_imputed_SAITS.csv"
 model_id_name=Electricity
 data_name=electricity

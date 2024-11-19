@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH -J trafficData #optional
+#SBATCH -J ecl #optional
 #SBATCH --account=ml4science
 #SBATCH --partition=dgx_normal_q
 #SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=16
-#SBATCH --time=28:00:00 # 12 hours
+#SBATCH --time=30:00:00 # 12 hours
 #SBATCH --gres=gpu:1
 
 module reset

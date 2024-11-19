@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH -J etth2testing
 #SBATCH --account=ml4science
-#SBATCH --partition=dgx_normal_q #dgx_normal_q #a100_normal_q
-#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=8
-#SBATCH --time=14:00:00 # 24 hours
+#SBATCH --partition=dgx_normal_q
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=16
+#SBATCH --time=18:00:00 # 24 hours
 #SBATCH --gres=gpu:1
 
 module reset
@@ -17,13 +17,13 @@ DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 
-CHECKPOINT="/projects/ml4science/time_series/iTransformer/Spline/checkpoints/"
+CHECKPOINT="/projects/ml4science/time_series/iTransformer/Spline/checkpoints_upd/"
 GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/electricity/"
 
-root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/electricity/"
+root_path_name="/projects/ml4science/time_series/ts_synthetic_datasets/updated_synthetic_datasets/electricity/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_electricity_imputed.csv"
 
-OUTPUT_PATH="/projects/ml4science/time_series/iTransformer/outputs/Spline/${MASKINGTYPE}/ECL_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/iTransformer/outputs_upd/Spline/${MASKINGTYPE}/ECL_v${TRIAL}/"
 
 seq_len=336
 
@@ -51,10 +51,11 @@ for id in $ROOT_PATHS; do
           --des 'Exp' \
           --d_model 512 \
           --d_ff 512 \
-          --batch_size 16 \
+          --batch_size 32 \
           --learning_rate 0.0005 \
           --itr 1 \
           --gpu $DEVICES \
+          --train_epochs 100 \
           --trial $TRIAL \
           --checkpoints $CHECKPOINT \
           --output_path $OUTPUT_PATH
