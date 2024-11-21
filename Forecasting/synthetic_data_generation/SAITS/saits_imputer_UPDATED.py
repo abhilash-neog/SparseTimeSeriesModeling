@@ -124,7 +124,8 @@ dataset_to_ser_len = {'ETTh1': [48, 48, 48],
                         'ETTm2': [48, 48, 48], 
                         'weather': [48, 48, 48], 
                         'electricity': [48, 48, 48], 
-                        'traffic': [48, 48, 48]}
+                        'traffic': [48, 48, 48],
+                        'solar': [48, 48, 48]}
 
 mapper={0:'train',
        1:'val',

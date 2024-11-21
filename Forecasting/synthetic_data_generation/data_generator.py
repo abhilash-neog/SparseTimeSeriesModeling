@@ -21,14 +21,14 @@ parser.add_argument('--source_file', type=str, default='etth1.csv')
 parser.add_argument('--ntrials', type=int, default=5, help='number of trials')
 parser.add_argument('--pvalues', nargs='+', help='missing value probabilities')
 parser.add_argument('--masking_type', type=str, default='mcar', choices=['mcar', 'periodic', 'periodic_block', 'hybrid'], help='type of masking being applied')
-
+parser.add_argument('--file_ext', type=str, default='.csv')
 
 args = parser.parse_args()
 
 '''
 set all parameters here
 '''
-pvalues = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] #args.pvalues
+pvalues = [float(x) for x in args.pvalues]
 ntrials = args.ntrials
 masking_type = args.masking_type
 dataset = args.dataset
@@ -45,10 +45,11 @@ if dataset=='ETT':
 else:
     out_file_name=dataset
 
-out_path = f"/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/{out_file_name}/{masking_map[masking_type]}{{}}" #+ str(p)[2:]
+# out_path = f"/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/{out_file_name}/{masking_map[masking_type]}{{}}" #+ str(p)[2:]
+out_path = f"/raid/abhilash/synthetic_datasets/{out_file_name}/{masking_map[masking_type]}{{}}"
 masked_file = f"v{{}}_{masking_type}_{out_file_name.lower()}.csv"
 imputed_file = f"v{{}}_{masking_type}_{out_file_name.lower()}_imputed.csv"
-in_path = os.path.join(args.in_path, dataset, out_file_name+'.csv')
+in_path = os.path.join(args.in_path, dataset, out_file_name+args.file_ext)
 
 
 def apply_mcar_with_probability(dataframe, p=0.001):

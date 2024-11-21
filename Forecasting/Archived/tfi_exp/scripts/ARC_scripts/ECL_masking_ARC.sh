@@ -1,23 +1,36 @@
+#!/bin/bash
+#SBATCH -J ecl #optional
+#SBATCH --account=ml4science
+#SBATCH --partition=dgx_normal_q
+#SBATCH --nodes=1 --ntasks-per-node=1 --cpus-per-task=16
+#SBATCH --time=30:00:00 # 12 hours
+#SBATCH --gres=gpu:1
+
+module reset
+module load Anaconda3/2020.11
+source activate env
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.conda/envs/env/lib
+
 DATASET="electricity"
 PRETRAIN_EPOCHS=50
 FINETUNE_EPOCHS=10
 
-BASE_PATH="/raid/abhilash/synthetic_datasets/electricity/"
+BASE_PATH="/projects/ml4science/time_series/ts_synthetic_datasets/synthetic_datasets/electricity/"
 ROOT_PATHS=$1
-DEVICE=$2
-TRIAL=$3
-MASKINGTYPE=$4
-PRED_LEN_LIST=$5
+DEVICE=0
+TRIAL=$2
+MASKINGTYPE=$3
+PRED_LEN_LIST=$4
 
 SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_electricity.csv"
 
 GT_SOURCE_FILE="electricity.csv"
-GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/electricity/"
+GT_ROOT_PATH="/projects/ml4science/time_series/ts_forecasting_datasets/electricity/"
 
-OUTPUT_PATH="./outputs_upd/${MASKINGTYPE}/ECL_v${TRIAL}/"
+OUTPUT_PATH="/projects/ml4science/time_series/outputs_upd/${MASKINGTYPE}/ECL_v${TRIAL}/"
 
-PRETRAIN_CKPTS="/raid/abhilash/pretrain_checkpoints/"
-FINETUNE_CKPTS="/raid/abhilash/finetune_checkpoints/"
+PRETRAIN_CKPTS="/projects/ml4science/time_series/pretrain_checkpoints_upd/"
+FINETUNE_CKPTS="/projects/ml4science/time_series/finetune_checkpoints_upd/"
 
 IFS=',' read -r -a PRED_LEN_ARRAY <<< "$PRED_LEN_LIST"
 
@@ -74,8 +87,8 @@ for id in $ROOT_PATHS; do
             --project_name ecl_masking \
             --output_path $OUTPUT_PATH \
             --trial $TRIAL \
-            --pretrain_checkpoints_dir $PRETRAIN_CKPTS \
-	        --finetune_checkpoints_dir $FINETUNE_CKPTS
+	        --finetune_checkpoints_dir $FINETUNE_CKPTS \
+            --pretrain_checkpoints_dir $PRETRAIN_CKPTS
     done
     
 done

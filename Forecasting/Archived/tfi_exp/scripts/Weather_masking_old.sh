@@ -1,20 +1,20 @@
-DATASET="electricity"
+DATASET="weather"
 PRETRAIN_EPOCHS=50
 FINETUNE_EPOCHS=10
 
-BASE_PATH="/raid/abhilash/synthetic_datasets/electricity/"
+BASE_PATH="/raid/abhilash/synthetic_datasets/weather/"
 ROOT_PATHS=$1
 DEVICE=$2
 TRIAL=$3
 MASKINGTYPE=$4
 PRED_LEN_LIST=$5
 
-SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_electricity.csv"
+SOURCE_FILE="v${TRIAL}_${MASKINGTYPE}_weather.csv"
 
-GT_SOURCE_FILE="electricity.csv"
-GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/electricity/"
+GT_SOURCE_FILE="weather.csv"
+GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/weather/"
 
-OUTPUT_PATH="./outputs_upd/${MASKINGTYPE}/ECL_v${TRIAL}/"
+OUTPUT_PATH="./outputs_upd/${MASKINGTYPE}/weather_v${TRIAL}/"
 
 PRETRAIN_CKPTS="/raid/abhilash/pretrain_checkpoints/"
 FINETUNE_CKPTS="/raid/abhilash/finetune_checkpoints/"
@@ -37,15 +37,14 @@ for id in $ROOT_PATHS; do
         --mask_ratio 0.50 \
         --encoder_num_heads 8 \
         --lr 0.001 \
-        --batch_size 32 \
-        --encoder_embed_dim 32 \
-        --decoder_embed_dim 32 \
-        --decoder_num_heads 16 \
-        --encoder_num_heads 16 \
+        --batch_size 16 \
+        --encoder_embed_dim 64 \
+        --decoder_embed_dim 64 \
+        --decoder_num_heads 4 \
         --decoder_depth 2 \
-        --project_name ecl_masking \
+        --project_name weather_masking \
         --trial $TRIAL \
-        --dropout 0.1 \
+        --dropout 0.001 \
 	    --pretrain_checkpoints_dir $PRETRAIN_CKPTS
     
     for pred_len in ${PRED_LEN_ARRAY[@]}; do
@@ -55,8 +54,8 @@ for id in $ROOT_PATHS; do
             --root_path $root_path \
             --gt_root_path $GT_ROOT_PATH \
             --gt_source_filename $GT_SOURCE_FILE \
-            --run_name "v${TRIAL}_${MASKINGTYPE}_finetune_${DATASET}_PRED_${pred_len}_${id}" \
-            --pretrain_run_name "v${TRIAL}_${MASKINGTYPE}_pretrain_${DATASET}_${id}" \
+            --run_name "v${TRIAL}_${MASKINGTYPE}_old_finetune_${DATASET}_PRED_${pred_len}_${id}" \
+            --pretrain_run_name "v${TRIAL}_${MASKINGTYPE}_old_pretrain_${DATASET}_${id}" \
             --freeze_encoder "False" \
             --max_epochs $FINETUNE_EPOCHS \
             --dataset $DATASET \
@@ -64,14 +63,14 @@ for id in $ROOT_PATHS; do
             --source_filename $SOURCE_FILE \
             --pretrain_ckpt_name ckpt_best.pth \
             --encoder_depth 2 \
-            --encoder_num_heads 16 \
-            --encoder_embed_dim 32 \
+            --encoder_num_heads 8 \
+            --encoder_embed_dim 64 \
             --lr 0.0001 \
-            --dropout 0.1\
-            --fc_dropout 0.0 \
-            --batch_size 32 \
+            --dropout 0.001\
+            --fc_dropout 0.4 \
+            --batch_size 16 \
             --accum_iter 1 \
-            --project_name ecl_masking \
+            --project_name weather_masking \
             --output_path $OUTPUT_PATH \
             --trial $TRIAL \
             --pretrain_checkpoints_dir $PRETRAIN_CKPTS \
