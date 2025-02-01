@@ -56,6 +56,7 @@ parser.add_argument('--subtract_last', type=int, default=0, help='0: subtract me
 parser.add_argument('--decomposition', type=int, default=0, help='decomposition; True 1 False 0')
 parser.add_argument('--kernel_size', type=int, default=25, help='decomposition-kernel')
 parser.add_argument('--individual', type=int, default=0, help='individual head; True 1 False 0')
+parser.add_argument('--misstsm', type=int, default=1, help="whether to apply misstsm layer")
 
 # Formers 
 parser.add_argument('--embed_type', type=int, default=0, help='0: default 1: value embedding + temporal embedding + positional embedding 2: value embedding + temporal embedding 3: value embedding + positional embedding 4: value embedding')
