@@ -1,12 +1,13 @@
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
-OUTPUT_PATH="./outputs/ETTh2_v"
+OUTPUT_PATH="./outputs_mtsm/ETTh2_v"
 
 DEVICES=$1
 TRIAL=$2
 
 root_path_name="/raid/abhilash/forecasting_datasets/ETT/"
 data_path_name="ETTh2.csv"
+CHECKPOINT="/raid/abhilash/misstsm_layers/time_series/iTransformer/checkpoints/"
 
 seq_len=336
 

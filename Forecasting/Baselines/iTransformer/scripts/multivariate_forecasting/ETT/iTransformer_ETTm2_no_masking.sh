@@ -1,12 +1,12 @@
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
-OUTPUT_PATH="./outputs_mtsm/weather_v"
+OUTPUT_PATH="./outputs_mtsm/ETTm2_v"
 
 DEVICES=$1
 TRIAL=$2
 
-root_path_name="/raid/abhilash/forecasting_datasets/weather/"
-data_path_name="weather.csv"
+root_path_name="/raid/abhilash/forecasting_datasets/ETT/"
+data_path_name="ETTm2.csv"
 CHECKPOINT="/raid/abhilash/misstsm_layers/time_series/iTransformer/checkpoints/"
 
 seq_len=336
@@ -18,19 +18,19 @@ for pred_len in 96 192 336 720; do
       --is_training 1 \
       --root_path $root_path_name \
       --data_path $data_path_name \
-      --model_id "weather_${seq_len}_${pred_len}" \
+      --model_id "ETTm2_${seq_len}_${pred_len}" \
       --model $model_name \
-      --data weather \
+      --data ETTm2 \
       --features M \
       --seq_len $seq_len \
       --pred_len $pred_len \
-      --e_layers 3 \
-      --enc_in 21 \
-      --dec_in 21 \
-      --c_out 21 \
+      --e_layers 2 \
+      --enc_in 7 \
+      --dec_in 7 \
+      --c_out 7 \
       --des 'Exp' \
-      --d_model 512\
-      --d_ff 512 \
+      --d_model 128 \
+      --d_ff 128 \
       --itr 1 \
       --gpu $DEVICES \
       --trial $TRIAL \
@@ -40,10 +40,10 @@ done
 # python -u run.py \
 #   --is_training 1 \
 #   --root_path ./dataset/ETT-small/ \
-#   --data_path ETTh2.csv \
-#   --model_id ETTh2_96_192 \
+#   --data_path ETTh1.csv \
+#   --model_id ETTh1_96_192 \
 #   --model $model_name \
-#   --data ETTh2 \
+#   --data ETTh1 \
 #   --features M \
 #   --seq_len 96 \
 #   --pred_len 192 \
@@ -52,17 +52,17 @@ done
 #   --dec_in 7 \
 #   --c_out 7 \
 #   --des 'Exp' \
-#   --d_model 128 \
-#   --d_ff 128 \
+#   --d_model 256 \
+#   --d_ff 256 \
 #   --itr 1
 
 # python -u run.py \
 #   --is_training 1 \
 #   --root_path ./dataset/ETT-small/ \
-#   --data_path ETTh2.csv \
-#   --model_id ETTh2_96_336 \
+#   --data_path ETTh1.csv \
+#   --model_id ETTh1_96_336 \
 #   --model $model_name \
-#   --data ETTh2 \
+#   --data ETTh1 \
 #   --features M \
 #   --seq_len 96 \
 #   --pred_len 336 \
@@ -71,17 +71,17 @@ done
 #   --dec_in 7 \
 #   --c_out 7 \
 #   --des 'Exp' \
-#   --d_model 128 \
-#   --d_ff 128 \
+#   --d_model 512 \
+#   --d_ff 512 \
 #   --itr 1
 
 # python -u run.py \
 #   --is_training 1 \
 #   --root_path ./dataset/ETT-small/ \
-#   --data_path ETTh2.csv \
-#   --model_id ETTh2_96_720 \
+#   --data_path ETTh1.csv \
+#   --model_id ETTh1_96_720 \
 #   --model $model_name \
-#   --data ETTh2 \
+#   --data ETTh1 \
 #   --features M \
 #   --seq_len 96 \
 #   --pred_len 720 \
@@ -90,6 +90,6 @@ done
 #   --dec_in 7 \
 #   --c_out 7 \
 #   --des 'Exp' \
-#   --d_model 128 \
-#   --d_ff 128 \
+#   --d_model 512 \
+#   --d_ff 512 \
 #   --itr 1

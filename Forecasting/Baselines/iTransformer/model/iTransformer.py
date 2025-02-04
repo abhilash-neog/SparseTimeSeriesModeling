@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from layers.Transformer_EncDec import Encoder, EncoderLayer
+from layers.Transformer_EncDec import Encoder, EncoderLayer, MissTSM
 from layers.SelfAttention_Family import FullAttention, AttentionLayer
 from layers.Embed import DataEmbedding_inverted
 import numpy as np
@@ -39,13 +39,18 @@ class Model(nn.Module):
         )
         self.projector = nn.Linear(configs.d_model, configs.pred_len, bias=True)
 
+        # misstsm layer
+        self.misstsm = configs.misstsm
+        if self.misstsm:
+            self.MTSMLayer = MissTSM(embed_dim=configs.d_model, num_feats=configs.enc_in, norm=self.use_norm)
+
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         if self.use_norm:
             # Normalization from Non-stationary Transformer
             means = x_enc.mean(1, keepdim=True).detach()
             x_enc = x_enc - means
             stdev = torch.sqrt(torch.var(x_enc, dim=1, keepdim=True, unbiased=False) + 1e-5)
-            x_enc /= stdev
+            x_enc = x_enc/stdev
 
         _, _, N = x_enc.shape # B L N
         # B: batch_size;    E: d_model; 
@@ -71,6 +76,10 @@ class Model(nn.Module):
         return dec_out
 
 
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
+    def forward(self, x_enc, x_mark_enc, m, x_dec, x_mark_dec, mask=None):
+        # apply misstsm - an external layer not part of the model backbone
+        if self.misstsm:
+            x_enc = self.MTSMLayer(x_enc, m)
+            
         dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
         return dec_out[:, -self.pred_len:, :]  # [B, L, D]

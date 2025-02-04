@@ -10,12 +10,14 @@ import numpy as np
 
 from layers.PatchTST_backbone import PatchTST_backbone
 from layers.PatchTST_layers import series_decomp
+from layers.PatchTST_layers import MissTSM
 
 
 class Model(nn.Module):
     def __init__(self, configs, max_seq_len:Optional[int]=1024, d_k:Optional[int]=None, d_v:Optional[int]=None, norm:str='BatchNorm', attn_dropout:float=0., 
                  act:str="gelu", key_padding_mask:bool='auto',padding_var:Optional[int]=None, attn_mask:Optional[Tensor]=None, res_attention:bool=True, 
-                 pre_norm:bool=False, store_attn:bool=False, pe:str='zeros', learn_pe:bool=True, pretrain_head:bool=False, head_type = 'flatten', verbose:bool=False, **kwargs):
+                 pre_norm:bool=False, store_attn:bool=False, pe:str='zeros', learn_pe:bool=True, pretrain_head:bool=False, head_type = 'flatten', 
+                 verbose:bool=False, **kwargs):
         
         super().__init__()
         
@@ -45,7 +47,11 @@ class Model(nn.Module):
         decomposition = configs.decomposition
         kernel_size = configs.kernel_size
         
-        
+        # misstsm layer
+        self.misstsm = configs.misstsm
+        if self.misstsm:
+            self.MTSMLayer = MissTSM(embed_dim=d_model, num_feats=c_in, norm=revin)
+
         # model
         self.decomposition = decomposition
         if self.decomposition:
@@ -77,7 +83,12 @@ class Model(nn.Module):
                                   subtract_last=subtract_last, verbose=verbose, **kwargs)
     
     
-    def forward(self, x):           # x: [Batch, Input length, Channel]
+    def forward(self, x, m):           # x: [Batch, Input length, Channel], m: [Batch, Input length, Channel]
+        
+        # apply misstsm - an external layer not part of the model backbone
+        if self.misstsm:
+            x = self.MTSMLayer(x, m)
+        
         if self.decomposition:
             res_init, trend_init = self.decomp_module(x)
             res_init, trend_init = res_init.permute(0,2,1), trend_init.permute(0,2,1)  # x: [Batch, Channel, Input length]

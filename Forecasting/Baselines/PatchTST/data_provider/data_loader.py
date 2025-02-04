@@ -89,8 +89,17 @@ class Dataset_ETT_hour(Dataset):
         seq_y = self.data_y[r_begin:r_end]
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
+        
+        maskX = np.isnan(seq_x).astype(int)
+        maskX = 1 - maskX
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
+        maskY = np.isnan(seq_y).astype(int)
+        maskY = 1 - maskY
+        
+        seq_x = np.nan_to_num(seq_x)
+        seq_y = np.nan_to_num(seq_y)
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark, maskX, maskY
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1
@@ -180,7 +189,16 @@ class Dataset_ETT_minute(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
+        maskX = np.isnan(seq_x).astype(int)
+        maskX = 1 - maskX
+
+        maskY = np.isnan(seq_y).astype(int)
+        maskY = 1 - maskY
+
+        seq_x = np.nan_to_num(seq_x)
+        seq_y = np.nan_to_num(seq_y)
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark, maskX, maskY
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1
@@ -258,10 +276,6 @@ class Dataset_Custom(Dataset):
         df_stamp['date'] = pd.to_datetime(df_stamp.date)
         if self.timeenc == 0:
             df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
-            df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
-            df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
-            df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
-            data_stamp = df_stamp.drop(['date'], axis=1).values
         elif self.timeenc == 1:
             data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0)
@@ -281,7 +295,16 @@ class Dataset_Custom(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
+        maskX = np.isnan(seq_x).astype(int)
+        maskX = 1 - maskX
+
+        maskY = np.isnan(seq_y).astype(int)
+        maskY = 1 - maskY
+
+        seq_x = np.nan_to_num(seq_x)
+        seq_y = np.nan_to_num(seq_y)
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark, maskX, maskY
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1

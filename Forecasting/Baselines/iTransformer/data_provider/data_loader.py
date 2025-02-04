@@ -89,7 +89,16 @@ class Dataset_ETT_hour(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
+        maskX = np.isnan(seq_x).astype(int)
+        maskX = 1 - maskX
+
+        maskY = np.isnan(seq_y).astype(int)
+        maskY = 1 - maskY
+        
+        seq_x = np.nan_to_num(seq_x)
+        seq_y = np.nan_to_num(seq_y)
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark, maskX, maskY
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1
@@ -179,7 +188,16 @@ class Dataset_ETT_minute(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
+        maskX = np.isnan(seq_x).astype(int)
+        maskX = 1 - maskX
+
+        maskY = np.isnan(seq_y).astype(int)
+        maskY = 1 - maskY
+
+        seq_x = np.nan_to_num(seq_x)
+        seq_y = np.nan_to_num(seq_y)
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark, maskX, maskY
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1
@@ -277,7 +295,16 @@ class Dataset_Custom(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
+        maskX = np.isnan(seq_x).astype(int)
+        maskX = 1 - maskX
+
+        maskY = np.isnan(seq_y).astype(int)
+        maskY = 1 - maskY
+
+        seq_x = np.nan_to_num(seq_x)
+        seq_y = np.nan_to_num(seq_y)
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark, maskX, maskY
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1
@@ -380,14 +407,17 @@ class Dataset_Solar(Dataset):
 
     def __read_data__(self):
         self.scaler = StandardScaler()
-        df_raw = []
-        with open(os.path.join(self.root_path, self.data_path), "r", encoding='utf-8') as f:
-            for line in f.readlines():
-                line = line.strip('\n').split(',')
-                data_line = np.stack([float(i) for i in line])
-                df_raw.append(data_line)
-        df_raw = np.stack(df_raw, 0)
-        df_raw = pd.DataFrame(df_raw)
+        if '.txt' in self.data_path:
+            df_raw = []
+            with open(os.path.join(self.root_path, self.data_path), "r", encoding='utf-8') as f:
+                for line in f.readlines()[1:]:
+                    line = line.strip('\n').split(',')
+                    data_line = np.stack([float(i) for i in line])
+                    df_raw.append(data_line)
+            df_raw = np.stack(df_raw, 0)
+            df_raw = pd.DataFrame(df_raw)
+        else:
+            df_raw = pd.read_csv(os.path.join(self.root_path, self.data_path))
 
         num_train = int(len(df_raw) * 0.7)
         num_test = int(len(df_raw) * 0.2)
