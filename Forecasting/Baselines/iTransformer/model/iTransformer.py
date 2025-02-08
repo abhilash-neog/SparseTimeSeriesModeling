@@ -18,6 +18,7 @@ class Model(nn.Module):
         self.pred_len = configs.pred_len
         self.output_attention = configs.output_attention
         self.use_norm = configs.use_norm
+        self.unnorm = configs.unnorm
         # Embedding
         self.enc_embedding = DataEmbedding_inverted(configs.seq_len, configs.d_model, configs.embed, configs.freq,
                                                     configs.dropout)
@@ -40,9 +41,14 @@ class Model(nn.Module):
         self.projector = nn.Linear(configs.d_model, configs.pred_len, bias=True)
 
         # misstsm layer
+        self.embed_type = configs.embed_type
         self.misstsm = configs.misstsm
         if self.misstsm:
-            self.MTSMLayer = MissTSM(embed_dim=configs.d_model, num_feats=configs.enc_in, norm=self.use_norm)
+            self.MTSMLayer = MissTSM(embed_dim=configs.d_model, 
+                                     num_feats=configs.enc_in, 
+                                     norm=self.use_norm,
+                                     embed=self.embed_type,
+                                     unnorm=self.unnorm)
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         if self.use_norm:

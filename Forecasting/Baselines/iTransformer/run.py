@@ -60,7 +60,8 @@ if __name__ == '__main__':
     parser.add_argument('--output_attention', action='store_true', help='whether to output attention in ecoder')
     parser.add_argument('--do_predict', action='store_true', help='whether to predict unseen future data')
     parser.add_argument('--misstsm', type=int, default=1, help="whether to apply misstsm layer")
-    
+    parser.add_argument('--embed_type', type=str, default="linear", help='type of TFI embedding to apply')
+
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
@@ -89,6 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('--target_data_path', type=str, default='electricity.csv', help='data file')
     parser.add_argument('--efficient_training', type=bool, default=False, help='whether to use efficient_training (exp_name should be partial train)') # See Figure 8 of our paper for the detail
     parser.add_argument('--use_norm', type=int, default=True, help='use norm and denorm')
+    parser.add_argument('--unnorm', type=int, default=True, help='perform denorm misstsm')
     parser.add_argument('--partial_start_index', type=int, default=0, help='the start index of variates for partial training, '
                                                                            'you can select [partial_start_index, min(enc_in + partial_start_index, N)]')
 

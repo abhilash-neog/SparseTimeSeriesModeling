@@ -4,6 +4,8 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.lines import Line2D
+from matplotlib.collections import LineCollection
 
 plt.switch_backend('agg')
 
@@ -81,10 +83,12 @@ def visual(true, preds=None, name='./pic/test.pdf'):
     """
     Results visualization
     """
-    plt.figure()
+    plt.figure(figsize=(12, 6))
     if preds is not None:
         plt.plot(preds, label='Prediction', linewidth=2)
     plt.plot(true, label='GroundTruth', linewidth=2)
+    plt.axvline(x=336, color='r', linestyle='--')
+
     plt.legend()
     plt.savefig(name, bbox_inches='tight')
 

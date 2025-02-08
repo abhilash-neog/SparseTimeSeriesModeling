@@ -94,13 +94,15 @@ def visual(true, preds=None, name='./pic/test.pdf'):
     """
     Results visualization
     """
-    plt.figure()
-    plt.plot(true, label='GroundTruth', linewidth=2)
+    plt.figure(figsize=(12, 6))
     if preds is not None:
         plt.plot(preds, label='Prediction', linewidth=2)
+    plt.plot(true, label='GroundTruth', linewidth=2)
+    plt.axvline(x=336, color='r', linestyle='--')
+
     plt.legend()
     plt.savefig(name, bbox_inches='tight')
-
+    
 def test_params_flop(model,x_shape):
     """
     If you want to thest former's flop, you need to give default value to inputs in model.forward(), the following code can only pass one argument to forward()

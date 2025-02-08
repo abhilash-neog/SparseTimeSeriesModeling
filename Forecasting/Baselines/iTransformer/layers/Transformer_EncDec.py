@@ -174,7 +174,7 @@ class MissTSM(nn.Module):
     Masked Autoencoder with Transformer backbone
     """
     
-    def __init__(self, embed_dim, num_feats=8, num_heads=1, out_dim=None, norm=False):
+    def __init__(self, embed_dim, num_feats=8, num_heads=1, out_dim=None, norm=False, embed="linear", unnorm=True):
         
         '''
         depth: refers to the number of encoder transformer blocks
@@ -190,6 +190,8 @@ class MissTSM(nn.Module):
         self.var_query = nn.Parameter(torch.zeros(1, 1, self.embed_dim), requires_grad=True)
         self.num_feats = num_feats
         self.norm = norm
+        self.unnorm = unnorm
+        self.embed = embed
 
         if out_dim:
             self.out_dim = out_dim
@@ -202,7 +204,10 @@ class MissTSM(nn.Module):
         self.mhca = nn.MultiheadAttention(embed_dim=self.embed_dim, num_heads=self.num_heads, batch_first=True)
 
         # self.mask_embed = TFI(input_dim=self.num_feats, embedding_dim=self.embed_dim)
-        self.mask_embed = LinearEmbed(embedding_dim=self.embed_dim)
+        if self.embed=="linear":
+            self.mask_embed = LinearEmbed(embedding_dim=self.embed_dim)
+        else:
+            self.mask_embed = TFI(input_dim=self.num_feats, embedding_dim=self.embed_dim)
         
         self.pos_embed = PositionalEncoding2D(self.embed_dim)
         self.projection = nn.Linear(self.embed_dim, self.out_dim)
@@ -239,10 +244,10 @@ class MissTSM(nn.Module):
     def forward(self, x, m):
         
         # perform rev instance norm
-        # if self.norm:
-        #     x, means, std = self.RevIN(x, m)
-        # else:
-        #     means, std = None, None
+        if self.norm:
+            x, means, std = self.RevIN(x, m)
+        else:
+            means, std = None, None
         
         # embed patches
         x = self.mask_embed(x)
@@ -256,8 +261,8 @@ class MissTSM(nn.Module):
         # linear projection
         x = self.projection(x)
         
-        # if self.norm:
-        #     x = x * (std[:, 0, :].unsqueeze(1).repeat(1, x.shape[1], 1))
-        #     x = x + (means[:, 0, :].unsqueeze(1).repeat(1, x.shape[1], 1))
+        if self.unnorm:
+            x = x * (std[:, 0, :].unsqueeze(1).repeat(1, x.shape[1], 1))
+            x = x + (means[:, 0, :].unsqueeze(1).repeat(1, x.shape[1], 1))
         
         return x

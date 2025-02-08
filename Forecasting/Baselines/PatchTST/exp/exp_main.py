@@ -391,6 +391,7 @@ class Exp_Main(Exp_Basic):
         trues = []
         inputx = []
         masks_y = []
+        masks_x = []
             
         folder_path = self.args.output_path
         print(folder_path)
@@ -437,6 +438,7 @@ class Exp_Main(Exp_Basic):
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
                 batch_mask_y = batch_mask_y[:, -self.args.pred_len:, f_dim:].to(self.device)
+                batch_mask_x = batch_mask_x.detach().cpu().numpy()
 
                 outputs = outputs.detach().cpu().numpy()
                 batch_y = batch_y.detach().cpu().numpy()
@@ -444,10 +446,12 @@ class Exp_Main(Exp_Basic):
 
                 pred = outputs
                 mask_y = batch_mask_y
+                mask_x = batch_mask_x
 
                 preds.append(pred)
                 inputx.append(batch_x.detach().cpu().numpy())
                 masks_y.append(mask_y)
+                masks_x.append(mask_x)
             
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark, _, _) in enumerate(test_loader_gt):
                 
@@ -458,11 +462,25 @@ class Exp_Main(Exp_Basic):
                 trues.append(true)
 
                 if i % 10 == 0:
+                    input = batch_x.detach().cpu().numpy()
+                    if test_data.scale and self.args.inverse:
+                        shape = input.shape
+                        input = test_data.inverse_transform(input.squeeze(0)).reshape(shape)
                     gt = true[0, :, -1]
+                    
                     pd = preds[i][0, :, -1]
-                    full_mask = masks_y[i][0, :, -1]
-                    gt[full_mask == 0] = np.nan
-                    visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
+                    full_mask = masks_x[i][0, :, -1]
+                    
+                    inputx = input[0, :, -1]
+                    inputx[full_mask == 0] = np.nan
+
+                    gt = np.concatenate((inputx, gt), axis=0)
+                    pd = np.concatenate((inputx, pd), axis=0)
+                    
+                    visual(true=gt, 
+                           preds=pd, 
+                           name=os.path.join(folder_path, self.args.root_path.split('/')[-1] + "_" + str(self.args.pred_len) + "_" + str(i) + '.pdf'))
+
 
         preds = np.array(preds)
         trues = np.array(trues)
