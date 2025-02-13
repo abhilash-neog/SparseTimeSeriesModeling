@@ -414,7 +414,7 @@ class Exp_Main(Exp_Basic):
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
                 # encoder - decoder
-                if self.args.use_amp:l
+                if self.args.use_amp:
                     with torch.cuda.amp.autocast():
                         if 'Linear' in self.args.model or 'TST' in self.args.model:
                             outputs = self.model(batch_x, batch_mask_x)
@@ -463,9 +463,6 @@ class Exp_Main(Exp_Basic):
 
                 if i % 10 == 0:
                     input = batch_x.detach().cpu().numpy()
-                    if test_data.scale and self.args.inverse:
-                        shape = input.shape
-                        input = test_data.inverse_transform(input.squeeze(0)).reshape(shape)
                     gt = true[0, :, -1]
                     
                     pd = preds[i][0, :, -1]
@@ -490,8 +487,7 @@ class Exp_Main(Exp_Basic):
         preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
         masks_y = masks_y.reshape(-1, masks_y.shape[-2], masks_y.shape[-1])
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
-        inputx = inputx.reshape(-1, inputx.shape[-2], inputx.shape[-1])
-
+        
         mae, mse, rmse, mape, mspe, rse, corr = metric(preds, trues, masks_y)
         print('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
         # f = open("result.txt", 'a')

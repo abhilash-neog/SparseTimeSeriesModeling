@@ -63,7 +63,7 @@ class PatchTST_backbone(nn.Module):
             z = z.permute(0,2,1)
             z = self.revin_layer(z, 'norm')
             z = z.permute(0,2,1)
-            
+        
         # do patching
         if self.padding_patch == 'end':
             z = self.padding_patch_layer(z)

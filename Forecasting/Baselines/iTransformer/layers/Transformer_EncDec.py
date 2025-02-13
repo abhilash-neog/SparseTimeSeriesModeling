@@ -174,7 +174,7 @@ class MissTSM(nn.Module):
     Masked Autoencoder with Transformer backbone
     """
     
-    def __init__(self, embed_dim, num_feats=8, num_heads=1, out_dim=None, norm=False, embed="linear", unnorm=True):
+    def __init__(self, embed_dim, num_feats=8, num_heads=1, out_dim=None, norm=False, embed="linear", mtsm_norm=False):
         
         '''
         depth: refers to the number of encoder transformer blocks
@@ -190,7 +190,7 @@ class MissTSM(nn.Module):
         self.var_query = nn.Parameter(torch.zeros(1, 1, self.embed_dim), requires_grad=True)
         self.num_feats = num_feats
         self.norm = norm
-        self.unnorm = unnorm
+        self.mtsm_norm = mtsm_norm
         self.embed = embed
 
         if out_dim:
@@ -244,7 +244,8 @@ class MissTSM(nn.Module):
     def forward(self, x, m):
         
         # perform rev instance norm
-        if self.norm:
+        if self.mtsm_norm:
+            print(f"Applying RevIN to MissTSM")
             x, means, std = self.RevIN(x, m)
         else:
             means, std = None, None
@@ -261,7 +262,7 @@ class MissTSM(nn.Module):
         # linear projection
         x = self.projection(x)
         
-        if self.unnorm:
+        if self.mtsm_norm:
             x = x * (std[:, 0, :].unsqueeze(1).repeat(1, x.shape[1], 1))
             x = x + (means[:, 0, :].unsqueeze(1).repeat(1, x.shape[1], 1))
         

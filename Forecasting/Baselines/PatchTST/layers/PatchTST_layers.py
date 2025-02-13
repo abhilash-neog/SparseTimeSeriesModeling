@@ -187,8 +187,8 @@ class MissTSM(nn.Module):
         
         self.mhca = nn.MultiheadAttention(embed_dim=self.embed_dim, num_heads=self.num_heads, batch_first=True)
 
-        # self.mask_embed = TFI(input_dim=self.num_feats, embedding_dim=self.embed_dim)
-        self.mask_embed = LinearEmbed(embedding_dim=self.embed_dim)
+        self.mask_embed = TFI(input_dim=self.num_feats, embedding_dim=self.embed_dim)
+        # self.mask_embed = LinearEmbed(embedding_dim=self.embed_dim)
         
         self.pos_embed = PositionalEncoding2D(self.embed_dim)
         self.projection = nn.Linear(self.embed_dim, self.out_dim)
@@ -235,6 +235,8 @@ class MissTSM(nn.Module):
 
         # add pos embed w/o cls token
         x = x + self.pos_embed(x)
+
+        # TODO: add layerNorm
 
         # perform cross-attention
         x = self.cross_attention(x, m)

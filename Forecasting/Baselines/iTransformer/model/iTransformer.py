@@ -18,7 +18,7 @@ class Model(nn.Module):
         self.pred_len = configs.pred_len
         self.output_attention = configs.output_attention
         self.use_norm = configs.use_norm
-        self.unnorm = configs.unnorm
+        self.mtsm_norm = configs.mtsm_norm
         # Embedding
         self.enc_embedding = DataEmbedding_inverted(configs.seq_len, configs.d_model, configs.embed, configs.freq,
                                                     configs.dropout)
@@ -48,15 +48,19 @@ class Model(nn.Module):
                                      num_feats=configs.enc_in, 
                                      norm=self.use_norm,
                                      embed=self.embed_type,
-                                     unnorm=self.unnorm)
+                                     mtsm_norm=self.mtsm_norm)
 
-    def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
+    def forecast(self, x_enc, x_mark_enc, m, x_dec, x_mark_dec):
         if self.use_norm:
             # Normalization from Non-stationary Transformer
             means = x_enc.mean(1, keepdim=True).detach()
             x_enc = x_enc - means
             stdev = torch.sqrt(torch.var(x_enc, dim=1, keepdim=True, unbiased=False) + 1e-5)
             x_enc = x_enc/stdev
+
+        # apply misstsm - as an internal layer as a part of the backbone
+        if self.misstsm:
+            x_enc = self.MTSMLayer(x_enc, m)
 
         _, _, N = x_enc.shape # B L N
         # B: batch_size;    E: d_model; 
@@ -83,9 +87,9 @@ class Model(nn.Module):
 
 
     def forward(self, x_enc, x_mark_enc, m, x_dec, x_mark_dec, mask=None):
-        # apply misstsm - an external layer not part of the model backbone
-        if self.misstsm:
-            x_enc = self.MTSMLayer(x_enc, m)
+        # # apply misstsm - an external layer not part of the model backbone
+        # if self.misstsm:
+        #     x_enc = self.MTSMLayer(x_enc, m)
             
-        dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
+        dec_out = self.forecast(x_enc, x_mark_enc, m, x_dec, x_mark_dec)
         return dec_out[:, -self.pred_len:, :]  # [B, L, D]

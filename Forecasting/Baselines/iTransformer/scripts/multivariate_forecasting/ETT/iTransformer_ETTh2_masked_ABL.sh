@@ -5,7 +5,7 @@ DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 TASK=$5
-UNNORM=$6
+MTSM_NORM=$6
 EMBED=$7
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
@@ -43,7 +43,7 @@ for id in $ROOT_PATHS; do
           --itr 1 \
           --gpu $DEVICES \
           --embed_type $EMBED\
-          --unnorm $UNNORM \
+          --mtsm_norm $MTSM_NORM \
           --trial $TRIAL \
           --checkpoints $CHECKPOINT \
           --output_path $OUTPUT_PATH
