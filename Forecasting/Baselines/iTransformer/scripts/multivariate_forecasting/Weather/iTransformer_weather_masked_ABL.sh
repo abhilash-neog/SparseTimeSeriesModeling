@@ -7,6 +7,7 @@ MASKINGTYPE=$4
 TASK=$5
 MTSM_NORM=$6
 EMBED=$7
+LAYERNORM=$8
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/weather/"
 root_path_name="/raid/abhilash/synthetic_datasets/weather/"
@@ -39,12 +40,16 @@ for id in $ROOT_PATHS; do
           --c_out 21 \
           --des 'Exp' \
           --d_model 512\
+          --q_dim 128 \
+          --k_dim 64 \
+          --v_dim 64 \
           --d_ff 512 \
           --itr 1 \
           --gpu $DEVICES \
           --trial $TRIAL \
           --embed_type $EMBED\
           --mtsm_norm $MTSM_NORM \
+          --layernorm $LAYERNORM \
           --checkpoints $CHECKPOINT \
           --output_path $OUTPUT_PATH
     done

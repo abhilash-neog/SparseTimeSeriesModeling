@@ -7,6 +7,8 @@ MASKINGTYPE=$4
 TASK=$5
 MTSM_NORM=$6
 EMBED=$7
+LAYERNORM=$8
+INVERTED=$9
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 root_path_name="/raid/abhilash/synthetic_datasets/ETTh2/"
@@ -39,11 +41,16 @@ for id in $ROOT_PATHS; do
           --c_out 7 \
           --des 'Exp' \
           --d_model 128 \
+          --q_dim 128 \
+          --k_dim 8 \
+          --v_dim 8 \
           --d_ff 128 \
           --itr 1 \
           --gpu $DEVICES \
           --embed_type $EMBED\
           --mtsm_norm $MTSM_NORM \
+          --layernorm $LAYERNORM \
+          --inverted $INVERTED\
           --trial $TRIAL \
           --checkpoints $CHECKPOINT \
           --output_path $OUTPUT_PATH

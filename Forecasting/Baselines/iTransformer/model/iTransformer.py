@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from layers.Transformer_EncDec import Encoder, EncoderLayer, MissTSM
+from layers.Transformer_EncDec import Encoder, EncoderLayer, MissTSM, iMissTSM
 from layers.SelfAttention_Family import FullAttention, AttentionLayer
 from layers.Embed import DataEmbedding_inverted
 import numpy as np
@@ -19,6 +19,9 @@ class Model(nn.Module):
         self.output_attention = configs.output_attention
         self.use_norm = configs.use_norm
         self.mtsm_norm = configs.mtsm_norm
+        self.layernorm = configs.layernorm
+        self.inverted = configs.inverted
+
         # Embedding
         self.enc_embedding = DataEmbedding_inverted(configs.seq_len, configs.d_model, configs.embed, configs.freq,
                                                     configs.dropout)
@@ -44,11 +47,27 @@ class Model(nn.Module):
         self.embed_type = configs.embed_type
         self.misstsm = configs.misstsm
         if self.misstsm:
-            self.MTSMLayer = MissTSM(embed_dim=configs.d_model, 
+            if not self.inverted:
+                self.MTSMLayer = MissTSM(q_dim=configs.q_dim,
+                                     k_dim=configs.k_dim,
+                                     v_dim=configs.v_dim, 
                                      num_feats=configs.enc_in, 
                                      norm=self.use_norm,
                                      embed=self.embed_type,
-                                     mtsm_norm=self.mtsm_norm)
+                                     mtsm_norm=self.mtsm_norm,
+                                     layernorm=self.layernorm
+                                     )
+            else:
+                self.MTSMLayer = iMissTSM(q_dim=configs.q_dim,
+                                     k_dim=configs.k_dim,
+                                     v_dim=configs.v_dim, 
+                                     num_feats=configs.enc_in, 
+                                     norm=self.use_norm,
+                                     embed=self.embed_type,
+                                     mtsm_norm=self.mtsm_norm,
+                                     layernorm=self.layernorm,
+                                     seq_len=configs.seq_len
+                                     )
 
     def forecast(self, x_enc, x_mark_enc, m, x_dec, x_mark_dec):
         if self.use_norm:
@@ -58,9 +77,9 @@ class Model(nn.Module):
             stdev = torch.sqrt(torch.var(x_enc, dim=1, keepdim=True, unbiased=False) + 1e-5)
             x_enc = x_enc/stdev
 
-        # apply misstsm - as an internal layer as a part of the backbone
-        if self.misstsm:
-            x_enc = self.MTSMLayer(x_enc, m)
+        # # apply misstsm - as an internal layer as a part of the backbone
+        # if self.misstsm:
+        #     x_enc = self.MTSMLayer(x_enc, m)
 
         _, _, N = x_enc.shape # B L N
         # B: batch_size;    E: d_model; 
@@ -87,9 +106,9 @@ class Model(nn.Module):
 
 
     def forward(self, x_enc, x_mark_enc, m, x_dec, x_mark_dec, mask=None):
-        # # apply misstsm - an external layer not part of the model backbone
-        # if self.misstsm:
-        #     x_enc = self.MTSMLayer(x_enc, m)
+        # apply misstsm - an external layer not part of the model backbone
+        if self.misstsm:
+            x_enc = self.MTSMLayer(x_enc, m)
             
         dec_out = self.forecast(x_enc, x_mark_enc, m, x_dec, x_mark_dec)
         return dec_out[:, -self.pred_len:, :]  # [B, L, D]
