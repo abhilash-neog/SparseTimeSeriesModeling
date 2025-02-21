@@ -3,6 +3,7 @@ DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 PRED_LEN_LIST=$5
+LAYERNORM=$6
 
 model_name=PatchTST
 
@@ -43,6 +44,10 @@ for id in $ROOT_PATHS; do
           --e_layers 3 \
           --n_heads 16 \
           --d_model 128 \
+          --q_dim 16 \
+          --k_dim 8 \
+          --v_dim 8 \
+          --layernorm $LAYERNORM\
           --d_ff 256 \
           --dropout 0.2\
           --fc_dropout 0.2\

@@ -50,8 +50,13 @@ class Model(nn.Module):
         # misstsm layer
         self.misstsm = configs.misstsm
         if self.misstsm:
-            self.MTSMLayer = MissTSM(embed_dim=d_model, num_feats=c_in, norm=revin)
-
+            self.MTSMLayer = MissTSM(q_dim=configs.q_dim,
+                                     k_dim=configs.k_dim, 
+                                     v_dim=configs.v_dim,
+                                     num_feats=c_in,
+                                     embed=configs.mtsm_embed,
+                                     mtsm_norm=configs.mtsm_norm,
+                                     layernorm=configs.layernorm)
         # model
         self.decomposition = decomposition
         if self.decomposition:

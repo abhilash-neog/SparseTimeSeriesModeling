@@ -2,7 +2,11 @@ ROOT_PATHS=$1
 DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
-PRED_LEN_LIST=$5
+TASK=$5
+MTSM_NORM=$6
+EMBED=$7
+PRED_LEN_LIST=$8
+LAYERNORM=$9
 
 model_name=PatchTST
 
@@ -13,8 +17,8 @@ GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 root_path_name="/raid/abhilash/synthetic_datasets/ETTh2/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_etth2.csv"
 
-OUTPUT_PATH="./outputs_mask_fraction/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
-CHECKPOINT="/raid/abhilash/misstsm_layers/time_series/PatchTST_supervised/Masked/checkpoints/"
+OUTPUT_PATH="./outputs_mask_fraction_${TASK}/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+CHECKPOINT="/raid/abhilash/misstsm_layers/time_series/PatchTST_supervised/${TASK}/Masked/checkpoints/"
 seq_len=336
 
 random_seed=2021
@@ -41,6 +45,12 @@ for id in $ROOT_PATHS; do
           --e_layers 3 \
           --n_heads 4 \
           --d_model 16 \
+          --q_dim 16 \
+          --k_dim 8 \
+          --v_dim 8 \
+          --layernorm $LAYERNORM\
+          --mtsm_embed $EMBED\
+          --mtsm_norm $MTSM_NORM \
           --d_ff 128 \
           --dropout 0.3\
           --fc_dropout 0.3\

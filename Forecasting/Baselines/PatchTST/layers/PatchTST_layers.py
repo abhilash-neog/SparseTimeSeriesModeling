@@ -160,7 +160,15 @@ class MissTSM(nn.Module):
     Masked Autoencoder with Transformer backbone
     """
     
-    def __init__(self, embed_dim, num_feats=8, num_heads=1, out_dim=None, norm=0):
+    def __init__(self, q_dim=8,
+                 k_dim=8,
+                 v_dim=8, 
+                 num_feats=8, 
+                 num_heads=1, 
+                 out_dim=None, 
+                 embed="linear", 
+                 mtsm_norm=False,
+                 layernorm=True):
         
         '''
         depth: refers to the number of encoder transformer blocks
@@ -171,11 +179,14 @@ class MissTSM(nn.Module):
         super().__init__()
         
         # TODO: Query dimension should be greater than key, value dimension
-        self.embed_dim = embed_dim
+        self.q_dim = q_dim
+        self.k_dim = k_dim
+        self.v_dim = v_dim
         self.num_heads = num_heads
-        self.var_query = nn.Parameter(torch.zeros(1, 1, self.embed_dim), requires_grad=True)
+        self.var_query = nn.Parameter(torch.zeros(1, 1, self.q_dim), requires_grad=True)
         self.num_feats = num_feats
-        self.norm = norm
+        self.mtsm_norm = mtsm_norm
+        self.embed = embed
 
         if out_dim:
             self.out_dim = out_dim
@@ -185,13 +196,21 @@ class MissTSM(nn.Module):
         ## Do we really need Multi-head attention?
         ## Grouped query-attention similar to llama3
         
-        self.mhca = nn.MultiheadAttention(embed_dim=self.embed_dim, num_heads=self.num_heads, batch_first=True)
+        self.mhca = nn.MultiheadAttention(embed_dim=self.q_dim, num_heads=self.num_heads, batch_first=True)
 
-        self.mask_embed = TFI(input_dim=self.num_feats, embedding_dim=self.embed_dim)
         # self.mask_embed = LinearEmbed(embedding_dim=self.embed_dim)
+        if self.embed=="linear":
+            self.mask_embed = LinearEmbed(embedding_dim=self.q_dim)
+        else:
+            self.mask_embed = TFI(input_dim=self.num_feats, embedding_dim=self.q_dim)
+
+        self.pos_embed = PositionalEncoding2D(self.q_dim)
+        self.projection = nn.Linear(self.q_dim, self.out_dim)
         
-        self.pos_embed = PositionalEncoding2D(self.embed_dim)
-        self.projection = nn.Linear(self.embed_dim, self.out_dim)
+        if layernorm:
+            self.layernorm = nn.LayerNorm(self.q_dim)
+        else:
+            self.layernorm = None
         
     def RevIN(self, x, m):
         '''
@@ -225,7 +244,7 @@ class MissTSM(nn.Module):
     def forward(self, x, m):
         
         # perform rev instance norm
-        if self.norm:
+        if self.mtsm_norm:
             x, means, std = self.RevIN(x, m)
         else:
             means, std = None, None
@@ -236,15 +255,17 @@ class MissTSM(nn.Module):
         # add pos embed w/o cls token
         x = x + self.pos_embed(x)
 
-        # TODO: add layerNorm
-
+        # apply layernorm
+        if self.layernorm:
+            x = self.layernorm(x)
+            
         # perform cross-attention
         x = self.cross_attention(x, m)
-        
+
         # linear projection
         x = self.projection(x)
         
-        if self.norm:
+        if self.mtsm_norm:
             x = x * (std[:, 0, :].unsqueeze(1).repeat(1, x.shape[1], 1))
             x = x + (means[:, 0, :].unsqueeze(1).repeat(1, x.shape[1], 1))
         
