@@ -8,6 +8,7 @@ TASK=$5
 MTSM_NORM=$6
 EMBED=$7
 LAYERNORM=$8
+INVERTED=$9
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 root_path_name="/raid/abhilash/synthetic_datasets/ETTm2/"
@@ -50,6 +51,7 @@ for id in $ROOT_PATHS; do
           --embed_type $EMBED\
           --mtsm_norm $MTSM_NORM \
           --layernorm $LAYERNORM \
+          --inverted $INVERTED\
           --checkpoints $CHECKPOINT \
           --output_path $OUTPUT_PATH
     done

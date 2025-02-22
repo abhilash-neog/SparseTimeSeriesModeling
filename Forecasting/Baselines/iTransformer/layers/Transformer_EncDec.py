@@ -183,7 +183,8 @@ class iMissTSM(nn.Module):
                  norm=False, 
                  embed="linear", 
                  mtsm_norm=False,
-                 layernorm=True):
+                 layernorm=True,
+                 seq_len=336):
         
         '''
         depth: refers to the number of encoder transformer blocks
@@ -203,11 +204,12 @@ class iMissTSM(nn.Module):
         self.norm = norm
         self.mtsm_norm = mtsm_norm
         self.embed = embed
-        
+        self.seq_len = seq_len
+
         if out_dim:
             self.out_dim = out_dim
         else:
-            self.out_dim = num_feats
+            self.out_dim = seq_len
             
         ## Do we really need Multi-head attention?
         ## Grouped query-attention similar to llama3
@@ -245,15 +247,15 @@ class iMissTSM(nn.Module):
     def cross_attention(self, x, m):
         
         batch_size, window_size, num_feat, d = x.shape
-        var_query = self.var_query.repeat_interleave(batch_size*window_size, dim=0)
+        var_query = self.var_query.repeat_interleave(batch_size*num_feat, dim=0)
         
-        x = x.view(-1, num_feat, d)
+        x = x.reshape(-1, window_size, d)
         
-        m_ = copy.deepcopy(m.reshape(-1, num_feat))
+        m_ = copy.deepcopy(m.reshape(-1, window_size))
         
         attn_out, _ = self.mhca(var_query, x, x, key_padding_mask=m_)
         
-        attn_out = attn_out.reshape(batch_size, window_size, d)
+        attn_out = attn_out.reshape(batch_size, num_feat, d)
         
         return attn_out
     
@@ -274,13 +276,14 @@ class iMissTSM(nn.Module):
 
         # perform cross-attention
         x = self.cross_attention(x, m)
-        
+
         # apply layernorm
         if self.layernorm:
             x = self.layernorm(x)
 
         # linear projection
         x = self.projection(x)
+        x = x.permute(0, 2, 1)
         
         if self.mtsm_norm:
             x = x * (std[:, 0, :].unsqueeze(1).repeat(1, x.shape[1], 1))
@@ -398,7 +401,7 @@ class MissTSM(nn.Module):
         # apply layernorm
         if self.layernorm:
             x = self.layernorm(x)
-
+            
         # linear projection
         x = self.projection(x)
         

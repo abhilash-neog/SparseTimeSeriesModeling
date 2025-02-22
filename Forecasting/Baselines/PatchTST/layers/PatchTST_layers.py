@@ -254,14 +254,14 @@ class MissTSM(nn.Module):
 
         # add pos embed w/o cls token
         x = x + self.pos_embed(x)
-
+        
         # apply layernorm
         if self.layernorm:
             x = self.layernorm(x)
             
         # perform cross-attention
         x = self.cross_attention(x, m)
-
+            
         # linear projection
         x = self.projection(x)
         
