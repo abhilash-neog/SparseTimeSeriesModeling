@@ -7,6 +7,8 @@ MTSM_NORM=$6
 EMBED=$7
 PRED_LEN_LIST=$8
 LAYERNORM=$9
+SKIP=${10}
+use_multi_gpu=${11}
 
 model_name=PatchTST
 
@@ -51,6 +53,7 @@ for id in $ROOT_PATHS; do
           --layernorm $LAYERNORM\
           --mtsm_embed $EMBED\
           --mtsm_norm $MTSM_NORM \
+          --skip_connection $SKIP \
           --d_ff 256 \
           --dropout 0.2\
           --fc_dropout 0.2\
@@ -66,7 +69,8 @@ for id in $ROOT_PATHS; do
           --trial $TRIAL \
           --learning_rate 0.0001 \
           --checkpoints $CHECKPOINT \
-          --output_path $OUTPUT_PATH 
+          --output_path $OUTPUT_PATH \
+          --use_multi_gpu $use_multi_gpu
           # >logs/LongForecasting/$model_name'_'$model_id_name'_'$seq_len'_'$pred_len.log 
     done
 done

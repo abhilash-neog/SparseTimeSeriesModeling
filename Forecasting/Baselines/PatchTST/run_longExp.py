@@ -62,9 +62,10 @@ parser.add_argument('--misstsm', type=int, default=1, help="whether to apply mis
 parser.add_argument('--q_dim', type=int, default=128, help='dimension of model')
 parser.add_argument('--k_dim', type=int, default=128, help='dimension of model')
 parser.add_argument('--v_dim', type=int, default=128, help='dimension of model')
-parser.add_argument('--layernorm', type=int, default=False, help='whether to apply layernorm after misstsm layer')
-parser.add_argument('--mtsm_norm', type=int, default=True, help='perform denorm misstsm')
+parser.add_argument('--layernorm', type=int, default=1, help='whether to apply layernorm after misstsm layer')
+parser.add_argument('--mtsm_norm', type=int, default=1, help='perform denorm misstsm')
 parser.add_argument('--mtsm_embed', type=str, default="linear", help='type of TFI embedding to apply')
+parser.add_argument('--skip_connection', type=int, default=0, help='add skipconnection to misstsm')
 
 # Formers 
 parser.add_argument('--embed_type', type=int, default=0, help='0: default 1: value embedding + temporal embedding + positional embedding 2: value embedding + temporal embedding 3: value embedding + positional embedding 4: value embedding')
@@ -104,7 +105,7 @@ parser.add_argument('--use_amp', action='store_true', help='use automatic mixed 
 # GPU
 parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
 parser.add_argument('--gpu', type=int, default=0, help='gpu')
-parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
+parser.add_argument('--use_multi_gpu', type=int, help='use multiple gpus', default=0)
 parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
 
 args = parser.parse_args()

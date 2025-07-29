@@ -10,7 +10,7 @@ import numpy as np
 
 from layers.PatchTST_backbone import PatchTST_backbone
 from layers.PatchTST_layers import series_decomp
-from layers.PatchTST_layers import MissTSM
+from layers.PatchTST_layers import MissTSM, MissTSMSkip
 
 
 class Model(nn.Module):
@@ -49,14 +49,25 @@ class Model(nn.Module):
         
         # misstsm layer
         self.misstsm = configs.misstsm
+        self.skipconnection = configs.skip_connection
+
         if self.misstsm:
-            self.MTSMLayer = MissTSM(q_dim=configs.q_dim,
-                                     k_dim=configs.k_dim, 
-                                     v_dim=configs.v_dim,
-                                     num_feats=c_in,
-                                     embed=configs.mtsm_embed,
-                                     mtsm_norm=configs.mtsm_norm,
-                                     layernorm=configs.layernorm)
+            if self.skipconnection:
+                self.MTSMLayer = MissTSMSkip(q_dim=configs.q_dim,
+                                        k_dim=configs.k_dim, 
+                                        v_dim=configs.v_dim,
+                                        num_feats=c_in,
+                                        embed=configs.mtsm_embed,
+                                        mtsm_norm=configs.mtsm_norm,
+                                        layernorm=configs.layernorm)
+            else:
+                self.MTSMLayer = MissTSM(q_dim=configs.q_dim,
+                                        k_dim=configs.k_dim, 
+                                        v_dim=configs.v_dim,
+                                        num_feats=c_in,
+                                        embed=configs.mtsm_embed,
+                                        mtsm_norm=configs.mtsm_norm,
+                                        layernorm=configs.layernorm)
         # model
         self.decomposition = decomposition
         if self.decomposition:
