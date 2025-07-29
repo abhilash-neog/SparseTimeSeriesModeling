@@ -9,13 +9,15 @@ MTSM_NORM=$6
 EMBED=$7
 LAYERNORM=$8
 INVERTED=$9
+SKIP=${10}
+use_misstsm=${11}
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 root_path_name="/raid/abhilash/synthetic_datasets/ETTh2/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_etth2.csv"
 
-OUTPUT_PATH="./outputs_mask_fraction_ABL_${TASK}/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
-CHECKPOINT="/raid/abhilash/misstsm_layers/time_series/iTransformer/Ablations/${TASK}/checkpoints/"
+OUTPUT_PATH="./outputs_AAAI_${TASK}/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+CHECKPOINT="/raid/abhilash/misstsm_layers_AAAI/time_series/iTransformer/Ablations/${TASK}/checkpoints/"
 seq_len=336
 
 model_name=iTransformer
@@ -51,9 +53,11 @@ for id in $ROOT_PATHS; do
           --mtsm_norm $MTSM_NORM \
           --layernorm $LAYERNORM \
           --inverted $INVERTED\
+          --skip_connection $SKIP \
           --trial $TRIAL \
           --checkpoints $CHECKPOINT \
-          --output_path $OUTPUT_PATH
+          --output_path $OUTPUT_PATH \
+          --misstsm $use_misstsm
     done
 done
 

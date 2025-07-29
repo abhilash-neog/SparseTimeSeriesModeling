@@ -9,6 +9,7 @@ MTSM_NORM=$6
 EMBED=$7
 LAYERNORM=$8
 INVERTED=$9
+SKIP=${10}
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/weather/"
 root_path_name="/raid/abhilash/synthetic_datasets/weather/"
@@ -52,6 +53,7 @@ for id in $ROOT_PATHS; do
           --mtsm_norm $MTSM_NORM \
           --layernorm $LAYERNORM \
           --inverted $INVERTED\
+          --skip_connection $SKIP \
           --checkpoints $CHECKPOINT \
           --output_path $OUTPUT_PATH
     done

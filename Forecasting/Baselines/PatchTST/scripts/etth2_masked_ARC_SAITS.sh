@@ -3,7 +3,8 @@ DEVICES=$2
 TRIAL=$3
 MASKINGTYPE=$4
 PRED_LEN_LIST=$5
-
+use_multi_gpu=$6
+use_misstsm=$7
 # OUTPUT_PATH="/projects/ml4science/time_series/PatchTST_supervised/outputs/SAITS/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
 
 # CHECKPOINT="/projects/ml4science/time_series/PatchTST_supervised/SAITS/checkpoints/"
@@ -22,8 +23,8 @@ GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 root_path_name="/raid/abhilash/updated_synthetic_datasets_tests/ETTh2/"
 data_path_name="v${TRIAL}_${MASKINGTYPE}_etth2_imputed_SAITS.csv"
 
-OUTPUT_PATH="./outputs_upd_test/SAITS/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
-CHECKPOINT="/raid/abhilash/ptst_ckpts_test/SAITS/"
+OUTPUT_PATH="./outputs_imputed_AAAI/SAITS/${MASKINGTYPE}/ETTh2_v${TRIAL}/"
+CHECKPOINT="/raid/abhilash/ptst_ckpts_imputed_AAAI/SAITS/"
 seq_len=336
 
 random_seed=2021
@@ -63,7 +64,9 @@ for id in $ROOT_PATHS; do
           --trial $TRIAL \
           --learning_rate 0.0001 \
           --checkpoints $CHECKPOINT \
-          --output_path $OUTPUT_PATH
+          --output_path $OUTPUT_PATH \
+          --use_multi_gpu $use_multi_gpu \
+          --misstsm $use_misstsm
           # >logs/LongForecasting/$model_name'_'$model_id_name'_'$seq_len'_'$pred_len.log 
     done
 done

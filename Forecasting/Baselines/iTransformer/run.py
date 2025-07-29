@@ -65,10 +65,11 @@ if __name__ == '__main__':
     parser.add_argument('--q_dim', type=int, default=16, help='query dimension')
     parser.add_argument('--k_dim', type=int, default=16, help='key dimension')
     parser.add_argument('--v_dim', type=int, default=16, help='value dimension')
-    parser.add_argument('--layernorm', type=int, default=False, help='whether to apply layernorm after misstsm layer')
-    parser.add_argument('--embed_type', type=str, default="linear", help='type of TFI embedding to apply')
-    parser.add_argument('--mtsm_norm', type=int, default=True, help='perform denorm misstsm')
-    parser.add_argument('--inverted', type=int, default=True, help='perform inverted misstsm')
+    parser.add_argument('--layernorm', type=int, default=True, help='whether to apply layernorm after misstsm layer')
+    parser.add_argument('--embed_type', type=str, default="tfi", help='type of TFI embedding to apply')
+    parser.add_argument('--mtsm_norm', type=int, default=1, help='perform denorm misstsm')
+    parser.add_argument('--inverted', type=int, default=1, help='perform inverted misstsm')
+    parser.add_argument('--skip_connection', type=int, default=1, help='add skipconnection to misstsm')
 
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')

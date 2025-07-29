@@ -15,10 +15,10 @@ data_name=ETTm2
 
 GT_ROOT_PATH="/raid/abhilash/forecasting_datasets/ETT/"
 root_path_name="/raid/abhilash/updated_synthetic_datasets/ETTm2/"
-data_path_name="v${TRIAL}_${MASKINGTYPE}_ettm2_imputed_SAITS.csv"
+data_path_name="v${TRIAL}_${MASKINGTYPE}_ettm2_imputed.csv"
 
-OUTPUT_PATH="./outputs_imputed_AAAI/SAITS/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
-CHECKPOINT="/raid/abhilash/ptst_ckpts_imputed_AAAI/SAITS/"
+OUTPUT_PATH="./outputs_imputed_AAAI/Spline/${MASKINGTYPE}/ETTm2_v${TRIAL}/"
+CHECKPOINT="/raid/abhilash/ptst_ckpts_imputed_AAAI/Spline/"
 seq_len=336
 
 random_seed=2021

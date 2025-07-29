@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from layers.Transformer_EncDec import Encoder, EncoderLayer, MissTSM, iMissTSM
+from layers.Transformer_EncDec import Encoder, EncoderLayer, MissTSM, iMissTSM, MissTSMSkip
 from layers.SelfAttention_Family import FullAttention, AttentionLayer
 from layers.Embed import DataEmbedding_inverted
 import numpy as np
@@ -21,7 +21,8 @@ class Model(nn.Module):
         self.mtsm_norm = configs.mtsm_norm
         self.layernorm = configs.layernorm
         self.inverted = configs.inverted
-
+        self.skip_connection = configs.skip_connection
+        
         # Embedding
         self.enc_embedding = DataEmbedding_inverted(configs.seq_len, configs.d_model, configs.embed, configs.freq,
                                                     configs.dropout)
@@ -47,17 +48,30 @@ class Model(nn.Module):
         self.embed_type = configs.embed_type
         self.misstsm = configs.misstsm
         if self.misstsm:
+            print("\nApplying MissTSM layer\n")
             if not self.inverted:
-                self.MTSMLayer = MissTSM(q_dim=configs.q_dim,
-                                     k_dim=configs.k_dim,
-                                     v_dim=configs.v_dim, 
-                                     num_feats=configs.enc_in, 
-                                     norm=self.use_norm,
-                                     embed=self.embed_type,
-                                     mtsm_norm=self.mtsm_norm,
-                                     layernorm=self.layernorm
+                if self.skip_connection:
+                    self.MTSMLayer = MissTSMSkip(q_dim=configs.q_dim,
+                                        k_dim=configs.k_dim,
+                                        v_dim=configs.v_dim, 
+                                        num_feats=configs.enc_in, 
+                                        norm=self.use_norm,
+                                        embed=self.embed_type,
+                                        mtsm_norm=self.mtsm_norm,
+                                        layernorm=self.layernorm
                                      )
+                else:
+                    self.MTSMLayer = MissTSM(q_dim=configs.q_dim,
+                                        k_dim=configs.k_dim,
+                                        v_dim=configs.v_dim, 
+                                        num_feats=configs.enc_in, 
+                                        norm=self.use_norm,
+                                        embed=self.embed_type,
+                                        mtsm_norm=self.mtsm_norm,
+                                        layernorm=self.layernorm
+                                        )
             else:
+                print("\nApplying inverted MissTSM layer\n")
                 self.MTSMLayer = iMissTSM(q_dim=configs.q_dim,
                                      k_dim=configs.k_dim,
                                      v_dim=configs.v_dim, 
