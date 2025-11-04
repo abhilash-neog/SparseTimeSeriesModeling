@@ -212,6 +212,16 @@ acc_arr = []
 auprc_arr = []
 auroc_arr = []
 
+# Performance metrics arrays
+avg_epoch_time_arr = []
+avg_inference_time_arr = []
+inference_throughput_arr = []
+peak_memory_gb_arr = []
+mask_embed_time_arr = []
+mask_embed_memory_arr = []
+cross_attention_time_arr = []
+cross_attention_memory_arr = []
+
 
 # Run five experiments
 for k in range(5):
@@ -341,6 +351,19 @@ for k in range(5):
     masked_penalize=False
     losses = []
 
+    # Initialize metrics tracking for this split
+    epoch_times = []
+    mask_embed_times_batch = []
+    cross_attention_times_batch = []
+    mask_embed_memories_batch = []
+    cross_attention_memories_batch = []
+    
+    # Reset peak GPU memory stats
+    if torch.cuda.is_available():
+        device_index = args.device.index if hasattr(args.device, 'index') and args.device.index is not None else 0
+        _ = torch.zeros(1).to(args.device)  # Initialize device
+        torch.cuda.reset_peak_memory_stats(device_index)
+
     start = time.time()
 
     # Training loop
@@ -349,6 +372,7 @@ for k in range(5):
         #     break
         """Training"""
         model.train()
+        epoch_start = time.time()
 
         # Shuffle data
         np.random.shuffle(expanded_idx_1)
@@ -356,6 +380,11 @@ for k in range(5):
         np.random.shuffle(idx_0)
         I0 = idx_0
         batch_loss, masked_batch_loss, unmasked_batch_loss = 0, 0, 0
+        
+        # Track MissTSM operations (mask_embed and cross_attention) during training
+        # Only track from epoch 2 onwards for a few batches to get representative metrics
+        track_misstsm_ops = (epoch >= 1 and epoch < 3)  # Track during epochs 2-3
+        
         for n in tqdm(range(n_batches)):
             # Get current batch data
             idx0_batch = I0[n * int(batch_size / 2):(n + 1) * int(batch_size / 2)]
@@ -381,7 +410,16 @@ for k in range(5):
             y = y.to(args.device)
             P = torch.nan_to_num(P).float().to(args.device)
             
-            outputs = model(P, P_mask, mpl)
+            # Track MissTSM operations (mask_embed and cross_attention) for a few batches
+            if track_misstsm_ops and n < 10:  # Track first 10 batches
+                outputs, mask_embed_time, mask_embed_memory, cross_attention_time, cross_attention_memory = model(P, P_mask, mpl, track_timing=True)
+                mask_embed_times_batch.append(mask_embed_time)
+                cross_attention_times_batch.append(cross_attention_time)
+                mask_embed_memories_batch.append(mask_embed_memory)
+                cross_attention_memories_batch.append(cross_attention_memory)
+            else:
+                outputs = model(P, P_mask, mpl)
+            
             optimizer.zero_grad()
             loss = criterion(outputs, y)
             loss_value = loss.item()
@@ -397,6 +435,26 @@ for k in range(5):
             optimizer.step()
         
         scheduler.step()
+        
+        epoch_end = time.time()
+        epoch_time = epoch_end - epoch_start
+        
+        # Track epoch time (starting from epoch 2)
+        if epoch >= 1:
+            epoch_times.append(epoch_time)
+            if len(epoch_times) >= 6:
+                avg_epoch_time = sum(epoch_times[-6:]) / 6
+                print(f'Epoch {epoch+1}: Time = {epoch_time:.3f}s | Avg (last 6): {avg_epoch_time:.3f}s')
+            else:
+                print(f'Epoch {epoch+1}: Time = {epoch_time:.3f}s')
+        
+        # Check peak GPU memory after epoch 3
+        if epoch == 2 and torch.cuda.is_available():
+            device_index = args.device.index if hasattr(args.device, 'index') and args.device.index is not None else 0
+            peak_memory_bytes = torch.cuda.max_memory_allocated(device_index)
+            peak_memory_gb = peak_memory_bytes / (1024 ** 3)
+            peak_memory_gb_arr.append(peak_memory_gb)
+            print(f'Peak GPU Memory (after epoch {epoch+1}): {peak_memory_gb:.3f} GB')
 
         # Calculate training set evaluation metrics
         train_probs = torch.squeeze(outputs)
@@ -461,28 +519,79 @@ for k in range(5):
     model.eval()
     model.load_state_dict(
         torch.load(model_path + '_' + dataset + '_' + save_time + '_' + str(k) + '.pt'))
+    
+    # Calculate average training time per epoch
+    if len(epoch_times) >= 6:
+        avg_training_time_per_epoch = sum(epoch_times[-6:]) / 6
+        avg_epoch_time_arr.append(avg_training_time_per_epoch)
+        print('=' * 60)
+        print(f'Average Training Time per Epoch (epochs 2-7): {avg_training_time_per_epoch:.3f} seconds')
+        print('=' * 60)
+    elif len(epoch_times) > 0:
+        avg_training_time_per_epoch = sum(epoch_times) / len(epoch_times)
+        avg_epoch_time_arr.append(avg_training_time_per_epoch)
+        print('=' * 60)
+        print(f'Average Training Time per Epoch (available epochs): {avg_training_time_per_epoch:.3f} seconds')
+        print('=' * 60)
+    
+    # Calculate MissTSM operation metrics (mask_embed and cross_attention)
+    if len(mask_embed_times_batch) > 0:
+        avg_mask_embed_time = sum(mask_embed_times_batch) / len(mask_embed_times_batch)
+        avg_cross_attention_time = sum(cross_attention_times_batch) / len(cross_attention_times_batch)
+        avg_mask_embed_memory = sum(mask_embed_memories_batch) / len(mask_embed_memories_batch)
+        avg_cross_attention_memory = sum(cross_attention_memories_batch) / len(cross_attention_memories_batch)
+        
+        mask_embed_time_arr.append(avg_mask_embed_time)
+        cross_attention_time_arr.append(avg_cross_attention_time)
+        mask_embed_memory_arr.append(avg_mask_embed_memory)
+        cross_attention_memory_arr.append(avg_cross_attention_memory)
+        
+        print('=' * 60)
+        print(f'MissTSM Operations Metrics (averaged over tracked batches):')
+        print(f'  mask_embed time: {avg_mask_embed_time*1000:.3f} ms, memory: {avg_mask_embed_memory:.3f} GB')
+        print(f'  cross_attention time: {avg_cross_attention_time*1000:.3f} ms, memory: {avg_cross_attention_memory:.3f} GB')
+        print('=' * 60)
+    
+    # Inference time measurement
+    print('\nPerforming inference...')
+    test_dataset_size = len(Ptest_tensor)
+    inference_start = time.time()
+    
     with torch.no_grad():
         Ptest_tensor = torch.nan_to_num(Ptest_tensor).to(args.device)
         Ptest_mask_tensor = torch.nan_to_num(Ptest_mask_tensor).to(args.device)
 
         out_test = model(Ptest_tensor, Ptest_mask_tensor, mpl)
-        # out_test = evaluate_model_patch(model, Ptest_tensor, Ptest_mask_tensor, Ptest_static_tensor, Ptest_time_tensor,
-        #                                 n_classes=n_class, batch_size=batch_size).numpy()
-        
-        # Convert PyTorch tensor to NumPy
-        out_test = out_test.detach().cpu().numpy()
-        
-        denoms = np.sum(np.exp(out_test.astype(np.float64)), axis=1).reshape((-1, 1))
-        y_test = ytest.copy()
-        probs = np.exp(out_test.astype(np.float64)) / denoms
-        ypred = np.argmax(out_test, axis=1)
-        acc = np.sum(y_test.ravel() == ypred.ravel()) / y_test.shape[0]
-        auc = roc_auc_score(y_test, probs[:, 1])
-        aupr = average_precision_score(y_test, probs[:, 1])
+    
+    inference_end = time.time()
+    inference_time = inference_end - inference_start
+    inference_throughput = test_dataset_size / inference_time  # samples per second
+    avg_inference_time_arr.append(inference_time)
+    inference_throughput_arr.append(inference_throughput)
+    
+    print('=' * 60)
+    print(f'Average Inference Time: {inference_time:.3f} seconds')
+    print(f'Inference Throughput: {inference_throughput:.2f} samples/second')
+    print(f'Test Dataset Size: {test_dataset_size} samples')
+    print('=' * 60)
+    
+    # out_test = evaluate_model_patch(model, Ptest_tensor, Ptest_mask_tensor, Ptest_static_tensor, Ptest_time_tensor,
+    #                                 n_classes=n_class, batch_size=batch_size).numpy()
+    
+    # Convert PyTorch tensor to NumPy
+    out_test = out_test.detach().cpu().numpy()
+    
+    denoms = np.sum(np.exp(out_test.astype(np.float64)), axis=1).reshape((-1, 1))
+    y_test = ytest.copy()
+    probs = np.exp(out_test.astype(np.float64)) / denoms
+    ypred = np.argmax(out_test, axis=1)
+    acc = np.sum(y_test.ravel() == ypred.ravel()) / y_test.shape[0]
+    auc = roc_auc_score(y_test, probs[:, 1])
+    aupr = average_precision_score(y_test, probs[:, 1])
 
-        print('Testing: AUROC = %.2f | AUPRC = %.2f | Accuracy = %.2f' % (auc * 100, aupr * 100, acc * 100))
-        print('classification report', classification_report(y_test, ypred))
-        print(confusion_matrix(y_test, ypred, labels=list(range(n_class))))
+    print('Testing: AUROC = %.2f | AUPRC = %.2f | Accuracy = %.2f' % (auc * 100, aupr * 100, acc * 100))
+    print('classification report', classification_report(y_test, ypred))
+    print(confusion_matrix(y_test, ypred, labels=list(range(n_class))))
 
     acc_arr.append(acc * 100)
     auprc_arr.append(aupr * 100)
@@ -497,3 +606,37 @@ print('------------------------------------------')
 print('Accuracy = %.1f±%.1f' % (mean_acc, std_acc))
 print('AUPRC    = %.1f±%.1f' % (mean_auprc, std_auprc))
 print('AUROC    = %.1f±%.1f' % (mean_auroc, std_auroc))
+
+# Display performance metrics
+print('\n' + '=' * 60)
+print('PERFORMANCE METRICS (across all splits):')
+print('=' * 60)
+if len(avg_epoch_time_arr) > 0:
+    mean_epoch_time, std_epoch_time = np.mean(avg_epoch_time_arr), np.std(avg_epoch_time_arr)
+    print(f'Avg Training Time per Epoch = {mean_epoch_time:.3f} +/- {std_epoch_time:.3f} seconds')
+
+if len(avg_inference_time_arr) > 0:
+    mean_inference_time, std_inference_time = np.mean(avg_inference_time_arr), np.std(avg_inference_time_arr)
+    print(f'Avg Inference Time          = {mean_inference_time:.3f} +/- {std_inference_time:.3f} seconds')
+
+if len(inference_throughput_arr) > 0:
+    mean_throughput, std_throughput = np.mean(inference_throughput_arr), np.std(inference_throughput_arr)
+    print(f'Inference Throughput        = {mean_throughput:.2f} +/- {std_throughput:.2f} samples/second')
+
+if len(peak_memory_gb_arr) > 0:
+    mean_memory, std_memory = np.mean(peak_memory_gb_arr), np.std(peak_memory_gb_arr)
+    print(f'Peak GPU Memory             = {mean_memory:.3f} +/- {std_memory:.3f} GB')
+
+if len(mask_embed_time_arr) > 0:
+    mean_mask_embed_time, std_mask_embed_time = np.mean(mask_embed_time_arr), np.std(mask_embed_time_arr)
+    mean_mask_embed_mem, std_mask_embed_mem = np.mean(mask_embed_memory_arr), np.std(mask_embed_memory_arr)
+    print(f'MissTSM mask_embed time      = {mean_mask_embed_time*1000:.3f} +/- {std_mask_embed_time*1000:.3f} ms')
+    print(f'MissTSM mask_embed memory    = {mean_mask_embed_mem:.3f} +/- {std_mask_embed_mem:.3f} GB')
+
+if len(cross_attention_time_arr) > 0:
+    mean_cross_attn_time, std_cross_attn_time = np.mean(cross_attention_time_arr), np.std(cross_attention_time_arr)
+    mean_cross_attn_mem, std_cross_attn_mem = np.mean(cross_attention_memory_arr), np.std(cross_attention_memory_arr)
+    print(f'MissTSM cross_attention time = {mean_cross_attn_time*1000:.3f} +/- {std_cross_attn_time*1000:.3f} ms')
+    print(f'MissTSM cross_attention mem  = {mean_cross_attn_mem:.3f} +/- {std_cross_attn_mem:.3f} GB')
+
+print('=' * 60)

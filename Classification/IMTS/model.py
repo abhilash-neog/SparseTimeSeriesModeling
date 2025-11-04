@@ -258,7 +258,9 @@ class MaskedAutoencoder(nn.Module):
         
         return attn_out
     
-    def forward_encoder(self, x, m):
+    def forward_encoder(self, x, m, track_timing=False):
+        import time
+        import torch
         
         # print(f"before = {x}")
         # means = torch.sum(x, dim=1) / torch.sum(m == 1, dim=1)
@@ -269,37 +271,86 @@ class MaskedAutoencoder(nn.Module):
         # stdev = stdev.unsqueeze(1)
         # x /= stdev
         
-        # embed patches
-        x = self.mask_embed(x)
+        # Track timing and memory for mask_embed
+        mask_embed_time = 0.0
+        mask_embed_memory = 0.0
+        cross_attention_time = 0.0
+        cross_attention_memory = 0.0
+        
+        if track_timing:
+            # Track mask_embed
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+                mask_embed_start = time.time()
+                mem_before_mask = torch.cuda.memory_allocated()
+            
+            # embed patches
+            x = self.mask_embed(x)
+            
+            if track_timing and torch.cuda.is_available():
+                torch.cuda.synchronize()
+                mask_embed_end = time.time()
+                mem_after_mask = torch.cuda.memory_allocated()
+                mask_embed_time = mask_embed_end - mask_embed_start
+                mask_embed_memory = (mem_after_mask - mem_before_mask) / (1024 ** 3)  # Convert to GB
+        else:
+            # embed patches
+            x = self.mask_embed(x)
         
         # add pos embed w/o cls token
         # x = x + self.mpl.pos_embed[:, 1:, :, :]
         
-        # perform cross-attention
-        x = self.cross_attention(x, m)
-
+        # Track timing and memory for cross_attention
+        if track_timing:
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+                cross_attn_start = time.time()
+                mem_before_cross = torch.cuda.memory_allocated()
+            
+            # perform cross-attention
+            x = self.cross_attention(x, m)
+            
+            if track_timing and torch.cuda.is_available():
+                torch.cuda.synchronize()
+                cross_attn_end = time.time()
+                mem_after_cross = torch.cuda.memory_allocated()
+                cross_attention_time = cross_attn_end - cross_attn_start
+                cross_attention_memory = (mem_after_cross - mem_before_cross) / (1024 ** 3)  # Convert to GB
+        else:
+            # perform cross-attention
+            x = self.cross_attention(x, m)
+        
         # masking: length -> length * mask_ratio
         if self.task_name=='pretrain':
             x, mask, nask, ids_restore = self.masking(x, m)
         
         # append cls token
         cls_token = self.cls_token + self.mpl.pos_embed[:, :1, :, :]
-        
+
         cls_tokens = cls_token.expand(x.shape[0], -1, -1, -1)
-        
+
         cls_tokens = cls_tokens[:, :, 0, :]
-        
+
         x = torch.cat((cls_tokens, x), dim=1)
         
         # apply Transformer blocks
         for blk in self.encoder_blocks:
             x = blk(x)
         x = self.norm(x)
-        
-        if self.task_name=='pretrain':
-            return x, mask, nask, ids_restore, means, stdev
-        elif self.task_name=='finetune':
-            return x#, means, stdev
+
+        if track_timing:
+            if self.task_name=='pretrain':
+                # means and stdev are not defined in finetune mode, so we need to handle this differently
+                # For pretrain, we return the standard format with timing info
+                return x, mask, nask, ids_restore, None, None, mask_embed_time, mask_embed_memory, cross_attention_time, cross_attention_memory
+            elif self.task_name=='finetune':
+                return x, mask_embed_time, mask_embed_memory, cross_attention_time, cross_attention_memory
+        else:
+            if self.task_name=='pretrain':
+                # In pretrain mode, means and stdev might be computed elsewhere, but not in this method
+                return x, mask, nask, ids_restore, None, None
+            elif self.task_name=='finetune':
+                return x#, means, stdev
 
     def forward_decoder(self, x, ids_restore, means, std):
         # embed tokens
@@ -384,19 +435,38 @@ class MaskedAutoencoder(nn.Module):
         return loss, masked_loss, unmasked_loss
 
 
-    def forward(self, data, miss_idx, mpl):
+    def forward(self, data, miss_idx, mpl, track_timing=False):
         
         self.mpl = mpl
         data = data[:, -self.seq_len:, :].contiguous()
         miss_idx = miss_idx[:, -self.seq_len:, :].contiguous()
 
         if self.task_name=='pretrain':
-            latent, mask, nask, ids_restore, means, std = self.forward_encoder(data, miss_idx)
-            pred = self.forward_decoder(latent, ids_restore, means, std)
-            return pred, mask, nask
+            if track_timing:
+                latent, mask, nask, ids_restore, means, std, mask_embed_time, mask_embed_memory, cross_attention_time, cross_attention_memory = self.forward_encoder(data, miss_idx, track_timing=True)
+                # means and std might be None, so handle appropriately
+                if means is None or std is None:
+                    means = torch.zeros_like(data[:, :1, :1])
+                    std = torch.ones_like(data[:, :1, :1])
+                pred = self.forward_decoder(latent, ids_restore, means, std)
+                return pred, mask, nask, mask_embed_time, mask_embed_memory, cross_attention_time, cross_attention_memory
+            else:
+                latent, mask, nask, ids_restore, means, std = self.forward_encoder(data, miss_idx)
+                # means and std might be None, so handle appropriately
+                if means is None or std is None:
+                    means = torch.zeros_like(data[:, :1, :1])
+                    std = torch.ones_like(data[:, :1, :1])
+                pred = self.forward_decoder(latent, ids_restore, means, std)
+                return pred, mask, nask
         
         elif self.task_name=='finetune':
-            latent = self.forward_encoder(data, miss_idx)
-            latent = latent[:, 1:, :]
-            pred = self.head(latent)
-            return pred
+            if track_timing:
+                latent, mask_embed_time, mask_embed_memory, cross_attention_time, cross_attention_memory = self.forward_encoder(data, miss_idx, track_timing=True)
+                latent = latent[:, 1:, :]
+                pred = self.head(latent)
+                return pred, mask_embed_time, mask_embed_memory, cross_attention_time, cross_attention_memory
+            else:
+                latent = self.forward_encoder(data, miss_idx)
+                latent = latent[:, 1:, :]
+                pred = self.head(latent)
+                return pred
