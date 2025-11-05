@@ -192,9 +192,6 @@ class MissTSM(nn.Module):
             self.out_dim = out_dim
         else:
             self.out_dim = num_feats
-            
-        ## Do we really need Multi-head attention?
-        ## Grouped query-attention similar to llama3
         
         self.mhca = nn.MultiheadAttention(embed_dim=self.q_dim, num_heads=self.num_heads, batch_first=True)
 
@@ -311,9 +308,6 @@ class MissTSMSkip(nn.Module):
             self.out_dim = out_dim
         else:
             self.out_dim = num_feats
-            
-        ## Do we really need Multi-head attention?
-        ## Grouped query-attention similar to llama3
         
         self.mhca = nn.MultiheadAttention(embed_dim=self.q_dim, num_heads=self.num_heads, batch_first=True)
 
