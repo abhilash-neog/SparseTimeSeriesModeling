@@ -178,7 +178,6 @@ class MissTSM(nn.Module):
         '''
         super().__init__()
         
-        # TODO: Query dimension should be greater than key, value dimension
         self.q_dim = q_dim
         self.k_dim = k_dim
         self.v_dim = v_dim
@@ -293,7 +292,6 @@ class MissTSMSkip(nn.Module):
         '''
         super().__init__()
         
-        # TODO: Query dimension should be greater than key, value dimension
         self.q_dim = q_dim
         self.k_dim = k_dim
         self.v_dim = v_dim
