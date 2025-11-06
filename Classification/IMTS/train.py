@@ -7,7 +7,9 @@ import math
 import sys
 from torch.optim import lr_scheduler
 from sklearn.metrics import roc_auc_score, classification_report, confusion_matrix, average_precision_score
-from model import MaskedAutoencoder
+# Import the MissTSM version of the model
+# To use the original model, change this to: from model import MaskedAutoencoder
+from model_misstsm import MaskedAutoencoder
 from positional_encodings.torch_encodings import PositionalEncoding1D, PositionalEncoding2D
 from utils.utils import get_1d_sincos_pos_embed
 from tqdm import tqdm
@@ -17,9 +19,9 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3,4,5,6,7'
 
 # Argument parser for command-line options
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', type=str, default='physionet', choices=['P12', 'P19', 'physionet', 'mimic3'])
-parser.add_argument('--epochs', type=int, default=100)  #
-parser.add_argument('--batch_size', type=int, default=16)
+parser.add_argument('--dataset', type=str, default='P19', choices=['P12', 'P19', 'physionet', 'mimic3'])
+parser.add_argument('--epochs', type=int, default=10)  #
+parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--lr', type=float, default=1e-4)
 
 parser.add_argument('--history', type=int, default=48, help="number of hours (months for ushcn and ms for activity) as historical window")
@@ -42,7 +44,9 @@ parser.add_argument('--mlp_ratio', type=int, default=4, help='mlp ratio for visi
 # parser.add_argument('--finetune_checkpoints_dir', type=str, default='./finetune_checkpoints')
 parser.add_argument('--trial', type=int, default=0)
 parser.add_argument('--task_name', type=str, default='finetune')
-parser.add_argument('--device', type=int, default=0)
+parser.add_argument('--use_misstsm', type=lambda v: str(v).lower() in ['true','1','yes'], default=True,
+                    help='Whether to use MissTSM layer (True/False)')
+parser.add_argument('--device', type=int, default=2)
 parser.add_argument('--patience', type=int, default=10)
 parser.add_argument('--pct_start', type=float, default=0.3)
 parser.add_argument('--mask_ratio', type=float, default=0.5)
@@ -217,10 +221,8 @@ avg_epoch_time_arr = []
 avg_inference_time_arr = []
 inference_throughput_arr = []
 peak_memory_gb_arr = []
-mask_embed_time_arr = []
-mask_embed_memory_arr = []
-cross_attention_time_arr = []
-cross_attention_memory_arr = []
+misstsm_time_arr = []
+misstsm_memory_arr = []
 
 
 # Run five experiments
@@ -309,7 +311,7 @@ for k in range(5):
             = tensorize_normalize_exact_feature_mimic3_patch(Ptest, ytest, mf, stdf, args)
 
     # Load the model
-    model = MaskedAutoencoder(args=args, num_feats=num_feats).to(args.device)
+    model = MaskedAutoencoder(args=args, num_feats=num_feats, use_misstsm=args.use_misstsm).to(args.device)
     mpl = ModelPlugins(window_len=args.seq_len, 
                         enc_embed_dim=model.embed_dim, 
                         dec_embed_dim=model.decoder_embed_dim,
@@ -353,10 +355,8 @@ for k in range(5):
 
     # Initialize metrics tracking for this split
     epoch_times = []
-    mask_embed_times_batch = []
-    cross_attention_times_batch = []
-    mask_embed_memories_batch = []
-    cross_attention_memories_batch = []
+    misstsm_times_batch = []
+    misstsm_memories_batch = []
     
     # Reset peak GPU memory stats
     if torch.cuda.is_available():
@@ -372,7 +372,7 @@ for k in range(5):
         #     break
         """Training"""
         model.train()
-        epoch_start = time.time()
+        epoch_start = time.perf_counter()
 
         # Shuffle data
         np.random.shuffle(expanded_idx_1)
@@ -383,7 +383,7 @@ for k in range(5):
         
         # Track MissTSM operations (mask_embed and cross_attention) during training
         # Only track from epoch 2 onwards for a few batches to get representative metrics
-        track_misstsm_ops = (epoch >= 1 and epoch < 3)  # Track during epochs 2-3
+        track_misstsm_ops = (epoch >= 1 and epoch < 4)  # Track during epochs 2-3
         
         for n in tqdm(range(n_batches)):
             # Get current batch data
@@ -410,33 +410,33 @@ for k in range(5):
             y = y.to(args.device)
             P = torch.nan_to_num(P).float().to(args.device)
             
-            # Track MissTSM operations (mask_embed and cross_attention) for a few batches
-            if track_misstsm_ops and n < 10:  # Track first 10 batches
-                outputs, mask_embed_time, mask_embed_memory, cross_attention_time, cross_attention_memory = model(P, P_mask, mpl, track_timing=True)
-                mask_embed_times_batch.append(mask_embed_time)
-                cross_attention_times_batch.append(cross_attention_time)
-                mask_embed_memories_batch.append(mask_embed_memory)
-                cross_attention_memories_batch.append(cross_attention_memory)
-            else:
-                outputs = model(P, P_mask, mpl)
-            
-            optimizer.zero_grad()
-            loss = criterion(outputs, y)
-            loss_value = loss.item()
+        # Track MissTSM operations for a few batches (only if enabled)
+        if args.use_misstsm: # and track_misstsm_ops and n < 10:  # Track first 10 batches
+            outputs, misstsm_time, misstsm_mem_alloc, misstsm_mem_reserved = model(P, P_mask, mpl, track_timing=True)
+            misstsm_times_batch.append(misstsm_time)
+            misstsm_memories_batch.append((misstsm_mem_alloc, misstsm_mem_reserved))
+        else:
+            outputs = model(P, P_mask, mpl)
+        
+        optimizer.zero_grad()
+        loss = criterion(outputs, y)
+        loss_value = loss.item()
 
-            if not math.isfinite(loss_value):
-                print("Loss is {}, stopping training".format(loss_value))
-                sys.exit(1)
+        if not math.isfinite(loss_value):
+            print("Loss is {}, stopping training".format(loss_value))
+            sys.exit(1)
 
-            # loss /= self.accum_iter
-            
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+        # loss /= self.accum_iter
+        
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
         
         scheduler.step()
         
-        epoch_end = time.time()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize(args.device)
+        epoch_end = time.perf_counter()
         epoch_time = epoch_end - epoch_start
         
         # Track epoch time (starting from epoch 2)
@@ -534,28 +534,34 @@ for k in range(5):
         print(f'Average Training Time per Epoch (available epochs): {avg_training_time_per_epoch:.3f} seconds')
         print('=' * 60)
     
-    # Calculate MissTSM operation metrics (mask_embed and cross_attention)
-    if len(mask_embed_times_batch) > 0:
-        avg_mask_embed_time = sum(mask_embed_times_batch) / len(mask_embed_times_batch)
-        avg_cross_attention_time = sum(cross_attention_times_batch) / len(cross_attention_times_batch)
-        avg_mask_embed_memory = sum(mask_embed_memories_batch) / len(mask_embed_memories_batch)
-        avg_cross_attention_memory = sum(cross_attention_memories_batch) / len(cross_attention_memories_batch)
+    # Calculate MissTSM operation metrics
+    if len(misstsm_times_batch) > 0:
+        avg_misstsm_time = sum(misstsm_times_batch) / len(misstsm_times_batch)
+        # Split allocated and reserved
+        if len(misstsm_memories_batch) > 0:
+            alloc_vals = [a for (a, r) in misstsm_memories_batch]
+            reserv_vals = [r for (a, r) in misstsm_memories_batch]
+            avg_misstsm_mem_alloc = sum(alloc_vals) / len(alloc_vals)
+            avg_misstsm_mem_reserved = sum(reserv_vals) / len(reserv_vals)
+        else:
+            avg_misstsm_mem_alloc = 0.0
+            avg_misstsm_mem_reserved = 0.0
         
-        mask_embed_time_arr.append(avg_mask_embed_time)
-        cross_attention_time_arr.append(avg_cross_attention_time)
-        mask_embed_memory_arr.append(avg_mask_embed_memory)
-        cross_attention_memory_arr.append(avg_cross_attention_memory)
+        misstsm_time_arr.append(avg_misstsm_time)
+        # Keep storing allocated memory in the original array for compatibility
+        misstsm_memory_arr.append(avg_misstsm_mem_alloc)
         
         print('=' * 60)
-        print(f'MissTSM Operations Metrics (averaged over tracked batches):')
-        print(f'  mask_embed time: {avg_mask_embed_time*1000:.3f} ms, memory: {avg_mask_embed_memory:.3f} GB')
-        print(f'  cross_attention time: {avg_cross_attention_time*1000:.3f} ms, memory: {avg_cross_attention_memory:.3f} GB')
+        print('MissTSM Layer Metrics (averaged over tracked batches):')
+        print(f'  MissTSM time: {avg_misstsm_time*1000:.3f} ms')
+        print(f'  MissTSM memory (allocated): {avg_misstsm_mem_alloc:.3f} GB')
+        print(f'  MissTSM memory (reserved) : {avg_misstsm_mem_reserved:.3f} GB')
         print('=' * 60)
     
     # Inference time measurement
     print('\nPerforming inference...')
     test_dataset_size = len(Ptest_tensor)
-    inference_start = time.time()
+    inference_start = time.perf_counter()
     
     with torch.no_grad():
         Ptest_tensor = torch.nan_to_num(Ptest_tensor).to(args.device)
@@ -563,7 +569,9 @@ for k in range(5):
 
         out_test = model(Ptest_tensor, Ptest_mask_tensor, mpl)
     
-    inference_end = time.time()
+    if torch.cuda.is_available():
+        torch.cuda.synchronize(args.device)
+    inference_end = time.perf_counter()
     inference_time = inference_end - inference_start
     inference_throughput = test_dataset_size / inference_time  # samples per second
     avg_inference_time_arr.append(inference_time)
@@ -627,16 +635,10 @@ if len(peak_memory_gb_arr) > 0:
     mean_memory, std_memory = np.mean(peak_memory_gb_arr), np.std(peak_memory_gb_arr)
     print(f'Peak GPU Memory             = {mean_memory:.3f} +/- {std_memory:.3f} GB')
 
-if len(mask_embed_time_arr) > 0:
-    mean_mask_embed_time, std_mask_embed_time = np.mean(mask_embed_time_arr), np.std(mask_embed_time_arr)
-    mean_mask_embed_mem, std_mask_embed_mem = np.mean(mask_embed_memory_arr), np.std(mask_embed_memory_arr)
-    print(f'MissTSM mask_embed time      = {mean_mask_embed_time*1000:.3f} +/- {std_mask_embed_time*1000:.3f} ms')
-    print(f'MissTSM mask_embed memory    = {mean_mask_embed_mem:.3f} +/- {std_mask_embed_mem:.3f} GB')
-
-if len(cross_attention_time_arr) > 0:
-    mean_cross_attn_time, std_cross_attn_time = np.mean(cross_attention_time_arr), np.std(cross_attention_time_arr)
-    mean_cross_attn_mem, std_cross_attn_mem = np.mean(cross_attention_memory_arr), np.std(cross_attention_memory_arr)
-    print(f'MissTSM cross_attention time = {mean_cross_attn_time*1000:.3f} +/- {std_cross_attn_time*1000:.3f} ms')
-    print(f'MissTSM cross_attention mem  = {mean_cross_attn_mem:.3f} +/- {std_cross_attn_mem:.3f} GB')
+if len(misstsm_time_arr) > 0:
+    mean_misstsm_time, std_misstsm_time = np.mean(misstsm_time_arr), np.std(misstsm_time_arr)
+    mean_misstsm_mem, std_misstsm_mem = np.mean(misstsm_memory_arr), np.std(misstsm_memory_arr)
+    print(f'MissTSM Layer time           = {mean_misstsm_time*1000:.3f} +/- {std_misstsm_time*1000:.3f} ms')
+    print(f'MissTSM Layer memory         = {mean_misstsm_mem:.3f} +/- {std_misstsm_mem:.3f} GB')
 
 print('=' * 60)

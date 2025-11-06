@@ -29,7 +29,7 @@ parser.add_argument('--fname', type=str, default=None)
 parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--split', type=int, default=0)
 parser.add_argument('--n', type=int, default=8000)
-parser.add_argument('--batch-size', type=int, default=128) # 128
+parser.add_argument('--batch-size', type=int, default=64) # 128
 parser.add_argument('--quantization', type=float, default=0.016,
                     help="Quantization on the physionet dataset.")
 parser.add_argument('--classif', default=True, action='store_true',
@@ -147,7 +147,7 @@ if __name__ == '__main__':
                 train_loss = 0
                 train_n = 0
                 train_acc = 0
-                epoch_start = time.time()
+                epoch_start = time.perf_counter()
                 for train_batch, label in train_loader:
                     train_batch, label = train_batch.to(device), label.to(device)
                     batch_len = train_batch.shape[0]
@@ -170,7 +170,9 @@ if __name__ == '__main__':
                     train_acc += torch.mean((out.argmax(1) == label).float()).item() * batch_len
                     train_n += batch_len
 
-                epoch_end = time.time()
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize(device)
+                epoch_end = time.perf_counter()
                 epoch_time = epoch_end - epoch_start
                 total_time += epoch_time
                 
@@ -234,11 +236,13 @@ if __name__ == '__main__':
             # Get test dataset size
             test_dataset_size = len(test_loader.dataset) if hasattr(test_loader, 'dataset') else sum(len(batch[1]) for batch in test_loader)
             
-            inference_start = time.time()
+            # Wall-clock inference time with perf_counter and device synchronize
+            inference_start = time.perf_counter()
             test_loss, test_acc, test_auc, test_aupr, test_precision, test_recall, test_F1 = \
                 utils.evaluate_classifier(rec, test_loader, args=args, dim=dim, dataset=dataset, device=device)
-            inference_end = time.time()
-            
+            if torch.cuda.is_available():
+                torch.cuda.synchronize(device)
+            inference_end = time.perf_counter()
             inference_time = inference_end - inference_start
             inference_throughput = test_dataset_size / inference_time  # samples per second
             inference_throughput_all.append(inference_throughput)  # Store for this run

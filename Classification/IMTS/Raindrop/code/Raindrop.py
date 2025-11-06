@@ -278,7 +278,7 @@ for missing_ratio in missing_ratios:
             expanded_idx_1 = np.concatenate([idx_1, idx_1, idx_1], axis=0)
             expanded_n1 = len(expanded_idx_1)
 
-            batch_size = 128
+            batch_size = 64
             if strategy == 1:
                 n_batches = 10
             elif strategy == 2:
@@ -304,7 +304,7 @@ for missing_ratio in missing_ratios:
             if wandb:
                 wandb.watch(model)
             for epoch in range(num_epochs):
-                epoch_start = time.time()
+                epoch_start = time.perf_counter()
                 model.train()
 
                 if strategy == 2:
@@ -391,7 +391,10 @@ for missing_ratio in missing_ratios:
                             torch.save(model.state_dict(), model_path + arch + '_' + str(split_idx) + '.pt')
                 
                 # Track epoch time (starting from epoch 2, track for 6 epochs)
-                epoch_end = time.time()
+                # Ensure GPU work completes before stopping timer
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize(device)
+                epoch_end = time.perf_counter()
                 epoch_time = epoch_end - epoch_start
                 if epoch >= 1:  # Start tracking from epoch 2 (index 1, since 0-indexed)
                     epoch_times.append(epoch_time)
@@ -429,15 +432,16 @@ for missing_ratio in missing_ratios:
             model.load_state_dict(torch.load(model_path + arch + '_' + str(split_idx) + '.pt'))
             model.eval()
 
-            # Measure inference throughput
+            # Measure inference throughput using CUDA events when available
             test_dataset_size = Ptest_tensor.shape[1]  # Number of test samples
-            inference_start = time.time()
-            
+            # Wall-clock inference time using perf_counter
+            inference_start = time.perf_counter()
             with torch.no_grad():
                 out_test = evaluate(model, Ptest_tensor, Ptest_time_tensor, Ptest_static_tensor, n_classes=n_classes, static=static_info).numpy()
                 ypred = np.argmax(out_test, axis=1)
-            
-            inference_end = time.time()
+            if torch.cuda.is_available():
+                torch.cuda.synchronize(device)
+            inference_end = time.perf_counter()
             inference_time = inference_end - inference_start
             inference_throughput = test_dataset_size / inference_time  # samples per second
             inference_throughput_arr[k, m] = inference_throughput  # Store for this split/run

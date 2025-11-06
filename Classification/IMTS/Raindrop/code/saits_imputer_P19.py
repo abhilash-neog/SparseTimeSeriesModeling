@@ -45,9 +45,9 @@ parser.add_argument('--feature_removal_level', type=str, default='no_removal',
                     choices=['no_removal', 'set', 'sample'])
 parser.add_argument('--withmissingratio', default=False, help='if True, missing ratio ranges from 0 to 0.5')
 parser.add_argument('--predictive_label', type=str, default='mortality', choices=['mortality', 'LoS'])
-parser.add_argument('--device', type=int, default=0, help='CUDA device index')
+parser.add_argument('--device', type=int, default=4, help='CUDA device index')
 parser.add_argument('--epochs', type=int, default=10, help='Number of training epochs')
-parser.add_argument('--batch_size', type=int, default=16, help='Batch size')
+parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
 parser.add_argument('--n_splits', type=int, default=5, help='Number of data splits for cross-validation')
 
 args = parser.parse_args()
@@ -210,7 +210,7 @@ for k in range(n_splits):
     best_val_loss = float('inf')
     
     for epoch in range(num_epochs):
-        epoch_start = time.time()
+        epoch_start = time.perf_counter()
         model.train()
         train_loss_epoch = 0
         train_batches = 0
@@ -245,7 +245,10 @@ for k in range(n_splits):
             train_loss_epoch += loss.item()
             train_batches += 1
         
-        epoch_end = time.time()
+        # Ensure GPU ops complete before ending timer
+        if torch.cuda.is_available() and device.type == 'cuda':
+            torch.cuda.synchronize(device)
+        epoch_end = time.perf_counter()
         epoch_time = epoch_end - epoch_start
         avg_train_loss = train_loss_epoch / train_batches if train_batches > 0 else 0
         
@@ -319,8 +322,8 @@ for k in range(n_splits):
     model.eval()
     
     test_dataset_size = len(test_loader.dataset)
-    inference_start = time.time()
-    
+    # Use wall-clock timing with perf_counter for overall inference time
+    inference_start = time.perf_counter()
     with torch.no_grad():
         for batch_X, batch_mask in test_loader:
             batch_X = batch_X.to(device)
@@ -336,9 +339,10 @@ for k in range(n_splits):
             }
             
             outputs = model(inputs, stage="test")
-            # Access imputed data if needed
-    
-    inference_end = time.time()
+    # Synchronize before stopping the timer to include all GPU work
+    if torch.cuda.is_available() and device.type == 'cuda':
+        torch.cuda.synchronize(device)
+    inference_end = time.perf_counter()
     inference_time = inference_end - inference_start
     avg_inference_time_arr[k, 0] = inference_time
     

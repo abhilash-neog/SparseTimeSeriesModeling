@@ -52,6 +52,7 @@ class Model(nn.Module):
         self.skipconnection = configs.skip_connection
 
         if self.misstsm:
+            print("\nApplying MissTSM layer\n")
             if self.skipconnection:
                 self.MTSMLayer = MissTSMSkip(q_dim=configs.q_dim,
                                         k_dim=configs.k_dim, 
@@ -104,12 +105,6 @@ class Model(nn.Module):
         # apply misstsm - an external layer not part of the model backbone
         if self.misstsm:
             x = self.MTSMLayer(x, m)
-
-        '''
-        1. Should we apply a constraint for MissTSM to see if it correctly reconstruct the unmasked values
-        2. Project MissTSM to a higher dimension and have a projectio layer to project the outputs back to the original channel dimension
-        3. Inverse MissTSM
-        '''
         
         if self.decomposition:
             res_init, trend_init = self.decomp_module(x)
