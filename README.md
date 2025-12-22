@@ -14,7 +14,7 @@ especially when the amount of missing values is large and the
 data lacks simplistic periodic structures—conditions common
 to real-world IMTS applications.
 
-Paper - [Investigating a Model-Agnostic and Imputation-Free Approach for Irregularly-Sampled Multivariate Time-Series Modeling](https://arxiv.org/abs/2502.15785)
+Paper - [Investigating a Model-Agnostic and Imputation-Free Approach for Irregularly-Sampled Multivariate Time-Series Modeling](https://arxiv.org/abs/2502.15785) (TMLR, 2025)
 
 
 ## Repository Structure
